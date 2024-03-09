@@ -1,14 +1,14 @@
 from fastapi import APIRouter
 from database.models import Topology_nodes, Topology_link, Topology_edges, Alltask, ipv4_table
 from pydantic import BaseModel, validator
-
+from typing import Dict,List,Any
 
 api_topology = APIRouter()
 
 
 
 @api_topology.get("/")
-async def getAlltopology():
+async def getAlltopology()-> Dict[str, Any]:# 
     topology = await Topology_nodes.all()
     edges = await Topology_edges.all()
     return {
@@ -18,7 +18,7 @@ async def getAlltopology():
 
 
 @api_topology.post("/node")
-async def getnode(id: int):
+async def getnode(id: int) -> List[Topology_nodes]:
     node = await Topology_nodes.filter(id=id)
     return node
 
@@ -29,7 +29,7 @@ class nodeIn(BaseModel):
     type: str
     ip: str
     package_count: int
-    interface: dict[str, int]
+    interface: Dict[str, int]
 
     # @validator("interface")
     # def validate_type(cls, value):
@@ -38,17 +38,17 @@ class nodeIn(BaseModel):
 
 
 @api_topology.post("/add/node")
-async def addnode(node: nodeIn):
-    node = await Topology_nodes.create(id=node.id, label=node.label, type=node.type, ip=node.ip,
-                                       package_count=node.package_count,
-                                       interface=node.interface)
-    print(node)
+async def addnode(node: nodeIn) -> Topology_nodes:
+    node_db = await Topology_nodes.create(id=node.id, label=node.label, type=node.type, ip=node.ip,
+                                        package_count=node.package_count,
+                                        interface=node.interface)
+    print(node_db)
     # 插入到数据库中
-    return node
+    return node_db
 
 
 @api_topology.get("/task")
-async def getalltasks():
+async def getalltasks() -> List[Alltask]:
     tasks = await  Alltask.all()
     return tasks
 
