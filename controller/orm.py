@@ -2,8 +2,9 @@ from typing import Generator, Optional
 from enum import Enum
 from sqlmodel import Field, SQLModel, create_engine,Session
 from datetime import datetime
+from pathlib import Path
 
-sqlite_file_name = "database.db"
+sqlite_file_name = Path(__file__).parent/"database.db"
 sqlite_url = f"sqlite:///{sqlite_file_name}"
 engine = create_engine(sqlite_url, echo=True)
 
