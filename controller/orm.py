@@ -12,7 +12,6 @@ class NodeType(Enum):
     HOST = "host"
     SWITCH = "switch"
 
-#终端和交换机
 class Node(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str 
@@ -20,13 +19,17 @@ class Node(SQLModel, table=True):
     ip:Optional[str] = Field(default=None,description="主机的ip地址, 由'.'分割的四个数，类似'1.1.1.1';交换机的此字段为空")
     console_ip:str = Field(description="ssh(192.168.199.xxx)")
 
-#终端和交换机
 class Link(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     node_id_1:int
     interface_id_1:int=Field(description="两个id按照字典序排序")
     node_id_2:int
     interface_id_2:int=Field(description="两个id按照字典序排序")
+
+class LinkState(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    link_id:int
+    create_time:datetime
     delay:Optional[int]=Field(default=None)
     rate:Optional[int]=Field(default=None)
     lost:Optional[float]=Field(default=None)
@@ -50,7 +53,7 @@ class Task(SQLModel, table=True):
 class TaskResult(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     task_id:int
-    time:datetime
+    create_time:datetime
     delay:Optional[int] = Field(default=None,description="时延")
     rate:Optional[int] = Field(default=None,description="速率")
     loss:Optional[float] = Field(default=None,description="丢包率")
