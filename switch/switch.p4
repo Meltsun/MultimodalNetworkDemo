@@ -164,14 +164,22 @@ parser c_parser(packet_in packet,
     }
     state parse_ethernet {
         packet.extract(hdr.ethernet);
-        transition select(hdr.ethernet.etherType) {
-            TYPE_IPV4: parse_ipv4;
-            TYPE_PROBE: parse_probe;
-            TYPE_IPV6: parse_ipv6;
-            TYPE_SINET: parse_sinet;
+        transition select(hdr.ethernet.ether_type) {
             TYPE_ARP: parse_arp;
+            TYPE_SINET: parse_sinet;
+            TYPE_IPV4: parse_ipv4;
+            TYPE_IPV6: parse_ipv6;
+            TYPE_PROBE: parse_probe;
             default: accept;
         }
+    }
+    state parse_arp {
+        packet.extract(hdr.arp);
+        transition accept;
+    }
+    state parse_sinet {
+        packet.extract(hdr.sinet);
+        transition accept;
     }
     state parse_ipv4 {
         packet.extract(hdr.ipv4);
@@ -191,6 +199,10 @@ parser c_parser(packet_in packet,
     }
     state parse_icmp {
         packet.extract(hdr.icmp);
+        transition accept;
+    }
+    state parse_ipv6 {
+        packet.extract(hdr.ipv6);
         transition accept;
     }
     state parse_probe {
@@ -217,18 +229,6 @@ parser c_parser(packet_in packet,
             0: accept;
             default: parse_probe_data;
         }
-    }
-    state parse_ipv6 {
-        packet.extract(hdr.ipv6);
-        transition accept;
-    }
-    state parse_sinet {
-        packet.extract(hdr.sinet);
-        transition accept;
-    }
-    state parse_arp {
-        packet.extract(hdr.arp);
-        transition accept;
     }
 }
 //------------------------------------------------------------
