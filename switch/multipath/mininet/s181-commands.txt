@@ -7,7 +7,7 @@ register_reset multipath_order
 table_add ipv4_is_for_video packet_cannot_multipath 10.170.170.2/24 =>
 table_add ipv4_is_for_video packet_can_multipath 10.180.180.2/24 =>
 
-table_add ipv4_singlepath_lpm ipv4_singlepath 10.170.170.2/24 => 00:00:00:00:01:81 00:00:00:00:01:75 1
+table_add ipv4_singlepath_lpm ipv4_singlepath 10.170.170.2/24 => 00:00:00:00:01:81 00:00:00:00:01:75 5
 table_add ipv4_singlepath_lpm ipv4_singlepath 10.180.180.2/24 => 00:00:00:00:01:81 00:00:00:00:01:87 3
 
 table_add ipv4_multipath_lpm ipv4_multipath 2 => 00:00:00:00:01:81 00:00:00:00:01:83 2
