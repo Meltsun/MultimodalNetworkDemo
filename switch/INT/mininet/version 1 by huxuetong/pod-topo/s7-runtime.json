@@ -1,0 +1,109 @@
+{
+  "target": "bmv2",
+  "p4info": "build/INT.p4.p4info.txt",
+  "bmv2_json": "build/INT.json",
+  "table_entries": [
+    {
+      "table": "c_egress.swid",
+      "default_action": true,
+      "action_name": "c_egress.set_swid",
+      "action_params": {
+         "swid": 7
+       }
+    },
+    {
+      "table": "c_ingress.ipv4_lpm",
+      "default_action": true,
+      "action_name": "c_ingress.drop",
+      "action_params": { }
+    },
+    {
+      "table": "c_ingress.ipv4_lpm",
+      "match": {
+        "hdr.ipv4.dst_addr": ["10.0.1.1", 32]
+      },
+      "action_name": "c_ingress.ipv4_forward",
+      "action_params": {
+        "dst_mac": "08:00:00:00:01:00",
+        "port": 2
+      }
+    },
+    {
+      "table": "c_ingress.ipv4_lpm",
+      "match": {
+        "hdr.ipv4.dst_addr": ["10.0.2.2", 32]
+      },
+      "action_name": "c_ingress.ipv4_forward",
+      "action_params": {
+        "dst_mac": "08:00:00:00:02:00",
+        "port": 2
+      }
+    },
+    {
+      "table": "c_ingress.ipv4_lpm",
+      "match": {
+        "hdr.ipv4.dst_addr": ["10.0.3.3", 32]
+      },
+      "action_name": "c_ingress.ipv4_forward",
+      "action_params": {
+        "dst_mac": "08:00:00:00:03:00",
+        "port": 3
+      }
+    },
+    {
+      "table": "c_ingress.ipv4_lpm",
+      "match": {
+        "hdr.ipv4.dst_addr": ["10.0.4.4", 32]
+      },
+      "action_name": "c_ingress.ipv4_forward",
+      "action_params": {
+        "dst_mac": "08:00:00:00:04:00",
+        "port": 4
+      }
+    },
+    {
+      "table": "c_ingress.ipv4_lpm",
+      "match": {
+        "hdr.ipv4.dst_addr": ["10.0.5.5", 32]
+      },
+      "action_name": "c_ingress.ipv4_forward",
+      "action_params": {
+        "dst_mac": "08:00:00:00:05:00",
+        "port": 1
+      }
+    },
+    {
+      "table": "c_ingress.ipv4_lpm",
+      "match": {
+        "hdr.ipv4.dst_addr": ["10.0.6.6", 32]
+      },
+      "action_name": "c_ingress.ipv4_forward",
+      "action_params": {
+        "dst_mac": "08:00:00:00:06:00",
+        "port": 1
+      }
+    },
+    {
+      "table": "c_ingress.ipv4_lpm",
+      "match": {
+        "hdr.ipv4.dst_addr": ["10.0.7.7", 32]
+      },
+      "action_name": "c_ingress.ipv4_forward",
+      "action_params": {
+        "dst_mac": "08:00:00:00:07:77",
+        "port": 0
+      }
+    },
+    {
+      "table": "c_ingress.ipv4_lpm",
+      "match": {
+        "hdr.ipv4.dst_addr": ["10.0.8.8", 32]
+      },
+      "action_name": "c_ingress.ipv4_forward",
+      "action_params": {
+        "dst_mac": "08:00:00:00:08:00",
+        "port": 5
+      }
+    }
+  ]
+}
