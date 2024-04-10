@@ -181,7 +181,7 @@ def congestion_controller(congestion_algorithm: str):
     hostname = '219.242.112.215'
     port = 6170
     username = 'sinet'
-    password = 'bjtungirc'
+    password = ''
     command = f'sudo sysctl -w net.ipv4.tcp_congestion_control={congestion_algorithm}'
 
     # 调用远程连接函数执行命令
