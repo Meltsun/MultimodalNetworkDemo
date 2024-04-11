@@ -165,7 +165,7 @@ def get_high_delay_link():
 
 
 @app.delete("/link/{id}", description="获取单个链路的信息")
-def delete_node(id: int):
+def get_node(id: int):
     with Session(engine) as session:
         link = session.get(Link, id)
         if not link:
