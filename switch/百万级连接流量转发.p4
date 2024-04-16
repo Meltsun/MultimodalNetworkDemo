@@ -90,19 +90,19 @@ control MyIngress(inout headers hdr,
         mark_to_drop(standard_metadata);
     }
 
-    action ipv4_forward(macAddr_t dstAddr, egressSpec_t port) {
+    action ipv4_forward_million_tcp(macAddr_t dstAddr, egressSpec_t port) {
         standard_metadata.egress_spec = port;
         hdr.ethernet.srcAddr = hdr.ethernet.dstAddr;
         hdr.ethernet.dstAddr = dstAddr;
         hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
     }
 
-    table ipv4_lpm {
+    table ipv4_million_tcp {
         key = {
             hdr.ipv4.dstAddr: lpm;
         }
         actions = {
-            ipv4_forward;
+            ipv4_forward_million_tcp;
             drop;
             NoAction;
         }
@@ -110,10 +110,8 @@ control MyIngress(inout headers hdr,
         default_action = drop();
     }
 
-    apply {  // 百万级连接的源目的IP地址都会最后两位大于 200
-        if (hdr.ipv4.isValid() && (hdr.ipv4.srcAddr & 0x00000011) >= 200 ) {
-            ipv4_lpm.apply();
-        }
+    apply { // 百万级连接流量不需要任何其他逻辑
+        ipv4_million_tcp.apply();
     }
 }
 
