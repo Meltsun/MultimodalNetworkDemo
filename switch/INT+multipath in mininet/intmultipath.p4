@@ -12,12 +12,16 @@ const bit<8>  IP_PROTO_UDP = 0x11;
 
 #define MAX_HOPS 10
 #define MAX_PORTS 10
+#define NUM_BUCKETS 101000
+//ECCN统计最大流数目
 
+// ECCN与multipath判断
 register< bit<32> >(8) transmition_model;
 // 共8个寄存器，索引为32位，每个寄存器存一个32位的数
 // transmition_model[0]=1，则使用ECCN，=0则不用
 // transmition_model[1]=1，则使用多路径，=0则不用
 
+// multipath寄存器
 register< bit<32> >(8) multipath_ability;
 // 共8个寄存器，索引为32位，每个寄存器存一个32位的数
 // multipath_ability[0]=1，则支持多路径，=0则不支持
@@ -31,6 +35,7 @@ register< bit<32> >(8) multipath_order;
 // 共8个寄存器，索引为32位，每个寄存器存32位的数
 // multipath_order[2,3,4]分别代表端口2,3,4的发包顺序
 
+//INT寄存器
 register<bit<32>>(MAX_PORTS) int_byte_ingress; 
 // 共MAX_PORTS个寄存器，索引为32位，每个寄存器存32位的数
 // 存储端口累积入流量，INT协议使用，int_byte_ingress[1]代表端口1的累计入流量
@@ -49,6 +54,18 @@ register<bit<48>>(MAX_PORTS) int_last_time_ingress;
 register<bit<48>>(MAX_PORTS) int_last_time_egress; 
 // 共MAX_PORTS个寄存器，索引为32位，每个寄存器存48位的数
 // 存储上一个INT包离开出端口时间，INT协议使用，int_last_time_egress[1]代表端口1的出INT包时间
+
+// ECCN寄存器
+register<bit<48>>(NUM_BUCKETS) congestion_time_reg;
+// 最近一次发生拥塞的时间，此时间的后一秒内收到的ACK都要被增加my_wnd字段
+register<bit<32>>(NUM_BUCKETS) byte_dropped_cnt_reg;
+// 最近一次发生拥塞时，丢弃的字节数
+register<bit<32>>(NUM_BUCKETS) max_cwnd_reg;
+register<bit<32>>(NUM_BUCKETS) cur_cwnd_reg;
+register<bit<48>>(NUM_BUCKETS) modify_time_reg;
+// 记录上一次cwnd修改时间
+register<bit<32>>(LEN_CUR_REG) all_cur_cwnd_reg;
+register<bit<32>>(NUM_BUCKETS) cur_pkt_num_reg;
 
 //------------------------------------------------------------
 // 定义首部
@@ -140,11 +157,25 @@ header udp_h {
     bit<16>  checksum;
 }
 //--------------------------
+//ECCN首部
+header my_wnd_t{
+	bit<8>		type;
+	bit<8>		length;
+	bit<16>		value;
+}
+
+header options_t{
+	bit<96>		nop_nop_timeStamps;
+}
+//--------------------------
 struct metadata {
     bit<8> packet_can_multipath;
     bit<8> multipath_port;
     bit<8> int_hop_cnt;
     bit<8> int_data_cnt;
+    bit<16> TCP_length;	
+    bit<32> hash_value;
+    bool isupdated;
 }
 //--------------------------
 //完整首部
@@ -158,6 +189,9 @@ struct headers {
     icmp_h                   icmp;
     tcp_h                    tcp;
     udp_h                    udp;
+    my_wnd_t		    my_wnd;
+    my_wnd_t		    test_wnd;
+    options_t		    options;
 }
 //------------------------------------------------------------
 parser c_parser(packet_in packet,
@@ -231,7 +265,19 @@ parser c_parser(packet_in packet,
     }
     state parse_tcp {
        packet.extract(hdr.tcp);
-       transition accept;
+       transition select(hdr.tcp.offset) {
+            5: accept;
+            default: parse_my_wnd;
+        }
+    }
+    state parse_my_wnd {
+        packet.extract(hdr.test_wnd);
+        transition parse_options;
+    }
+
+    state parse_options {
+        packet.extract(hdr.options);
+        transition accept;
     }
     state parse_udp {
        packet.extract(hdr.udp);
@@ -281,6 +327,90 @@ control c_ingress(inout headers hdr,
         actions = {
             packet_can_multipath;
             packet_cannot_multipath;
+            _drop;
+        }
+        size = 1024;
+        default_action = _drop();
+    }
+    action packet_can_eccn() {
+        hash(meta.hash_value, HashAlgorithm.crc16, (bit<32>) 0, {hdr.ipv4.srcAddr, hdr.ipv4.dstAddr, hdr.tcp.srcPort, hdr.tcp.dstPort}, (bit<32>) NUM_BUCKETS);        
+        // 区分TCP数据包和ACK包    
+        meta.TCP_length = hdr.ipv4.totalLen - ((bit<16>)hdr.ipv4.ihl << 2);
+        time_t cur_time = standard_metadata.ingress_global_timestamp;
+        bit<48> modify_time;
+        modify_time_reg.read(modify_time,(bit<32>)meta.hash_value);
+        time_t time_difference = cur_time - modify_time;     // 当前时间与上次修改时间的时间差
+        if(time_difference > 1000000){
+            modify_time_reg.write((bit<32>)meta.hash_value, cur_time);
+            // ACK包没有data部分，只有32个字节的首部（20固定+12可选项[每个2字节的填充和10字节的时间戳]）
+            log_msg("meta.TCP_length : {}",{meta.TCP_length});
+            log_msg("hdr.ipv4.ttl : {}",{hdr.ipv4.ttl});
+            if (hdr.ipv4.protocol == TCP_PROTOCOL && meta.TCP_length <= 32 && hdr.ipv4.ttl <= 62){ 	// 除入网第一跳交换机不修改ACK其他均进行修改
+                time_t congestion_time;
+                congestion_time_reg.read(congestion_time, (bit<32>)meta.hash_value);    // 读出拥塞
+                bit<32> max_cwnd;
+                bit<32> cur_cwnd;
+                if(congestion_time == 0){ // 如果没有发生过拥塞，或者拥塞处理完了，窗口就慢慢增加
+                    max_cwnd_reg.read(max_cwnd, (bit<32>)meta.hash_value);    // 读出max_cwnd
+                    cur_cwnd_reg.read(cur_cwnd, (bit<32>)meta.hash_value);    // 读出cur_cwnd
+                    if (max_cwnd == 0 && cur_cwnd == 0){
+                        max_cwnd = 1;
+                        cur_cwnd = max_cwnd;
+                    }else{    // 读出上一次发生拥塞时被丢弃的字节数
+                    //byte_dropped_cnt = byte_dropped_cnt 
+                        // bit<32> tmp ;
+                        // tmp = cur_cwnd / 5;
+                        // cur_cwnd = cur_cwnd + (bit<32>)tmp;
+                        cur_cwnd = cur_cwnd + 1;
+
+                        if (cur_cwnd >= max_cwnd){
+                            max_cwnd = cur_cwnd;
+                        }
+                    }
+                    max_cwnd_reg.write((bit<32>)meta.hash_value, max_cwnd);
+                    cur_cwnd_reg.write((bit<32>)meta.hash_value, cur_cwnd);
+
+                }else{  // 如果现在时间在拥塞发生时间的100ms以内才会增加ACK字段
+                    max_cwnd_reg.read(max_cwnd, (bit<32>)meta.hash_value);    // 读出max_cwnd
+                    cur_cwnd_reg.read(cur_cwnd, (bit<32>)meta.hash_value);    // 读出cur_cwnd
+                    max_cwnd = cur_cwnd;
+                    max_cwnd_reg.write((bit<32>)meta.hash_value, max_cwnd);
+
+                    bit<32> byte_dropped_cnt;
+                    byte_dropped_cnt_reg.read(byte_dropped_cnt, (bit<32>)meta.hash_value);
+                     //byte_dropped_cnt = byte_dropped_cnt >> 9; // 丢包字节数除以512，因为内核里窗口是要用wscale放大的，所以这里先除一下，而wscale一般都是9
+                    cur_cwnd = cur_cwnd - byte_dropped_cnt >> 1;
+                    cur_cwnd_reg.write((bit<32>)meta.hash_value, cur_cwnd);
+                    congestion_time = congestion_time - 1;
+                    congestion_time_reg.write((bit<32>)meta.hash_value,congestion_time);
+                }
+    //			log_msg("qwertyuiop");
+                if(hdr.test_wnd.isValid() && hdr.test_wnd.type == 0xfe){
+                    if(cur_cwnd <= (bit<32>)hdr.test_wnd.value){
+                       hdr.test_wnd.value = (bit<16>)cur_cwnd;
+                       meta.isupdated = true;
+                    }
+    //				log_msg("qqqq");
+                }else{
+    //                log_msg("wwwww");
+                    meta.isupdated = false;
+                    hdr.my_wnd.setValid();
+                    hdr.my_wnd.type = 0xfe;		// type固定254
+                    hdr.my_wnd.length = 0x04;	// 该字段(TLV)的总长度为4
+                    hdr.my_wnd.value = (bit<16>)cur_cwnd;	// 算法交互字段； 写入的值在内核里会被wscale放大的
+                    hdr.tcp.offset = hdr.tcp.offset + 1; // tcp的offset字段就是tcp包的首部总长度	（它的单位是4个字节）
+                    hdr.ipv4.totalLen = hdr.ipv4.totalLen + 4; // IP首部记录的报文总长度字段			
+                    meta.TCP_length = meta.TCP_length + 4;	// 重新计算TCP长度
+                    hdr.options.setValid(); 
+            }
+
+    }
+    table ipv4_is_for_eccn {
+        key = {
+            hdr.ipv4.dst_addr: lpm;
+        }
+        actions = {
+            packet_can_eccn;
             _drop;
         }
         size = 1024;
@@ -371,6 +501,13 @@ control c_ingress(inout headers hdr,
             hdr.probe.hop_cnt = hdr.probe.hop_cnt - 1;
             hdr.probe_fwd.pop_front(1);
             probe_exact.apply();
+
+            // ecnn drop judgment
+            if (hdr.probe_data[1].count_egress > hdr.probe_data[0].count_ingress){
+                bit<32> byte_dropped_cnt = hdr.probe_data[0].byte_cnt - pkg_cnt_ingress;
+                byte_dropped_cnt_reg.write((bit<32>)0, byte_dropped_cnt);    // 把丢弃的字节数写入寄存器
+                //congestion_time_reg.write((bit<32>)meta.hash_value,(bit<48>)3);    // 把拥塞修改次数写入
+            }
         }
         else if (ipv4_is_for_video.apply().hit) {
             // is the packet for video
@@ -553,6 +690,17 @@ control c_ingress(inout headers hdr,
             if (temp_eccn == 1) {
                 // the packet should be used eccn
             }
+
+        }
+        else if (ipv4_is_for_eccn.apply().hit) {
+            
+            
+            }
+            // bit<32> cur_cwnd;
+			// cur_cwnd_reg.read(cur_cwnd,0);
+
+        }
+
 
         }
         else {
