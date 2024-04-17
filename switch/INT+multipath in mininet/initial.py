@@ -12,7 +12,7 @@ if __name__ == "__main__":
     s186='9094'
     s188='9095'
     eccn = '0'
-    multipath = '0'
+    multipath = '1'
 
 
     ## switch s176

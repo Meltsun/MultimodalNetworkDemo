@@ -15,10 +15,10 @@ register_reset int_last_time_egress
 table_add ipv4_is_for_video packet_cannot_multipath 10.170.170.2/24 =>
 table_add ipv4_is_for_video packet_cannot_multipath 10.180.180.2/24 =>
 
-table_add ipv4_singlepath_lpm ipv4_singlepath 10.180.180.2/24 => 00:00:00:00:01:78 00:00:00:00:01:80 2
-table_add ipv4_singlepath_lpm ipv4_singlepath 10.170.170.2/24 => 00:00:00:00:01:78 00:00:00:00:01:84 4
+table_add ipv4_singlepath_lpm ipv4_singlepath 10.180.180.2/24 => a0:36:9f:08:c7:b5 e8:61:1f:37:b5:8b 2
+table_add ipv4_singlepath_lpm ipv4_singlepath 10.170.170.2/24 => a0:36:9f:08:c7:b6 a0:36:9f:d9:3b:83 3
 
-table_add probe_exact probe_forward 173 => 00:00:00:00:01:78 00:00:00:00:01:73 1
-table_add probe_exact probe_forward 180 => 00:00:00:00:01:78 00:00:00:00:01:80 2
-table_add probe_exact probe_forward 184 => 00:00:00:00:01:78 00:00:00:00:01:84 4
-table_add probe_exact probe_forward 188 => 00:00:00:00:01:78 00:00:00:00:01:88 3
+table_add probe_exact probe_forward 173 => a0:36:9f:08:c7:b4 e8:61:1f:37:b6:8f 1
+table_add probe_exact probe_forward 180 => a0:36:9f:08:c7:b5 e8:61:1f:37:b5:8b 2
+table_add probe_exact probe_forward 184 => a0:36:9f:08:c7:b7 a0:36:9f:d9:3a:e7 4
+table_add probe_exact probe_forward 188 => a0:36:9f:08:c7:b6 a0:36:9f:d9:3b:83 3
