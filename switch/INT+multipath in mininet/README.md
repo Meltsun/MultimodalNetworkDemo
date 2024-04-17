@@ -9,7 +9,7 @@
     网络拓扑构建文件 network.py
     交换机逻辑文件 intmultipath.p4
     交换机流表 s176/178/182/184/186/188-commands.txt
-    寄存器配置文件 initial_schedule_RR.py
+    寄存器配置文件 initial.py
     指令运行文件 run.sh
     垃圾清理文件 clean.sh
 
