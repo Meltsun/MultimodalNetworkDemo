@@ -12,12 +12,16 @@ const bit<8>  IP_PROTO_UDP = 0x11;
 
 #define MAX_HOPS 10
 #define MAX_PORTS 10
+#define NUM_BUCKETS 101000
+//ECCN统计最大流数目
 
+// ECCN与multipath判断
 register< bit<32> >(8) transmition_model;
 // 共8个寄存器，索引为32位，每个寄存器存一个32位的数
 // transmition_model[0]=1，则使用ECCN，=0则不用
 // transmition_model[1]=1，则使用多路径，=0则不用
 
+// multipath寄存器
 register< bit<32> >(8) multipath_ability;
 // 共8个寄存器，索引为32位，每个寄存器存一个32位的数
 // multipath_ability[0]=1，则支持多路径，=0则不支持
@@ -31,6 +35,7 @@ register< bit<32> >(8) multipath_order;
 // 共8个寄存器，索引为32位，每个寄存器存32位的数
 // multipath_order[2,3,4]分别代表端口2,3,4的发包顺序
 
+//INT寄存器
 register<bit<32>>(MAX_PORTS) int_byte_ingress; 
 // 共MAX_PORTS个寄存器，索引为32位，每个寄存器存32位的数
 // 存储端口累积入流量，INT协议使用，int_byte_ingress[1]代表端口1的累计入流量
@@ -49,6 +54,24 @@ register<bit<48>>(MAX_PORTS) int_last_time_ingress;
 register<bit<48>>(MAX_PORTS) int_last_time_egress; 
 // 共MAX_PORTS个寄存器，索引为32位，每个寄存器存48位的数
 // 存储上一个INT包离开出端口时间，INT协议使用，int_last_time_egress[1]代表端口1的出INT包时间
+
+// ECCN寄存器
+register<bit<48>>(1) congestion_time_reg;
+// 最近一次发生拥塞的时间，此时间的后一秒内收到的ACK都要被增加my_wnd字段
+register<bit<48>>(1) num_flow;
+// 统计经过数据流数量(有问题，只加)
+register<bit<32>>(NUM_BUCKETS) byte_dropped_cnt_reg;
+// 最近一次发生拥塞时，丢弃的字节数
+register<bit<32>>(NUM_BUCKETS) max_cwnd_reg;
+// 记录流最大拥塞窗口值
+register<bit<32>>(NUM_BUCKETS) cur_cwnd_reg;
+// 记录流当前拥塞窗口值
+register<bit<48>>(NUM_BUCKETS) modify_time_reg;
+// 记录上一次cwnd修改时间
+// register<bit<48>>(NUM_BUCKETS) time_dif_reg;
+// // 记录流修改间隔
+// register<bit<32>>(NUM_BUCKETS) init_cwnd_reg;
+// // 初始cwnd状态表
 
 //------------------------------------------------------------
 // 定义首部
@@ -140,11 +163,26 @@ header udp_h {
     bit<16>  checksum;
 }
 //--------------------------
+//ECCN首部
+header my_wnd_t{
+	bit<8>		type;
+	bit<8>		length;
+	bit<16>		value;
+}
+
+header options_t{
+	bit<96>		nop_nop_timeStamps;
+}
+//--------------------------
 struct metadata {
     bit<8> packet_can_multipath;
     bit<8> multipath_port;
     bit<8> int_hop_cnt;
     bit<8> int_data_cnt;
+    bit<16> TCP_length;	
+    bit<32> hash_value;
+    bool isupdated;
+    bit<48> cur_flow;
 }
 //--------------------------
 //完整首部
@@ -158,6 +196,9 @@ struct headers {
     icmp_h                   icmp;
     tcp_h                    tcp;
     udp_h                    udp;
+    my_wnd_t		    my_wnd;
+    my_wnd_t		    test_wnd;
+    options_t		    options;
 }
 //------------------------------------------------------------
 parser c_parser(packet_in packet,
@@ -166,7 +207,7 @@ parser c_parser(packet_in packet,
                 inout standard_metadata_t standard_metadata) {
 
     state start {
-        meta = {0, 0, 0, 0};
+        meta = {0, 0, 0, 0, 0, 0, false, 0};
         transition parse_ethernet;
     }
     state parse_ethernet {
@@ -231,6 +272,18 @@ parser c_parser(packet_in packet,
     }
     state parse_tcp {
        packet.extract(hdr.tcp);
+       transition select(hdr.tcp.data_offset) {
+            5: accept;
+            default: parse_my_wnd;
+        }
+    }
+    state parse_my_wnd {
+        packet.extract(hdr.test_wnd);
+        transition parse_options;
+    }
+
+    state parse_options {
+        packet.extract(hdr.options);
        transition accept;
     }
     state parse_udp {
@@ -371,6 +424,13 @@ control c_ingress(inout headers hdr,
             hdr.probe.hop_cnt = hdr.probe.hop_cnt - 1;
             hdr.probe_fwd.pop_front(1);
             probe_exact.apply();
+
+            // eccn int link drop judgment
+            if (hdr.probe_data[1].count_egress > hdr.probe_data[0].count_ingress){
+                bit<32> byte_dropped_cnt = hdr.probe_data[1].count_egress - hdr.probe_data[0].count_ingress;
+                byte_dropped_cnt_reg.write((bit<32>)0, byte_dropped_cnt);    // 把丢弃的字节数写入寄存器
+                congestion_time_reg.write(0,(bit<48>)standard_metadata.ingress_global_timestamp);    // 把拥塞修改次数写入
+            }
         }
         else if (ipv4_is_for_video.apply().hit) {
             // is the packet for video
@@ -552,6 +612,11 @@ control c_ingress(inout headers hdr,
             // eccn last
             if (temp_eccn == 1 && hdr.ipv4.protocol == IP_PROTO_TCP) {
                 // the packet should be used eccn
+                // 区分TCP数据包和ACK包。ACK包没有data部分，只有32个字节的首部（20固定+12可选项[每个2字节的填充和10字节的时间戳]） 
+                meta.TCP_length = (bit<16>)hdr.ipv4.ttl - ((bit<16>)hdr.ipv4.ihl << 2);
+                num_flow.read(meta.cur_flow, 0); 
+                meta.cur_flow =meta.cur_flow +1;
+                num_flow.write(0,meta.cur_flow); 
                 // 计算hash作为寄存器下标
                 if( (hdr.ipv4.src_addr >= hdr.ipv4.dst_addr) && (hdr.tcp.src_port >= hdr.tcp.dst_port)){
                     hash(meta.hash_value, HashAlgorithm.crc32, (bit<32>)0, { hdr.ipv4.src_addr, hdr.ipv4.dst_addr, hdr.tcp.src_port, hdr.tcp.dst_port }, (bit<32>) NUM_BUCKETS);  // 根据流四元组计算出一个索引
@@ -686,7 +751,73 @@ control c_egress(inout headers hdr,
 control c_compute_checksum(inout headers hdr,
                            inout metadata meta) {
     apply {
+        update_checksum(	// IP 和 TCP 的校验和计算使用相同的计算方法。
+            hdr.ipv4.isValid(),
+                { hdr.ipv4.version,
+                hdr.ipv4.ihl,
+                hdr.ipv4.diffserv,
+                hdr.ipv4.total_len,
+                hdr.ipv4.identification,
+                hdr.ipv4.flags,
+                hdr.ipv4.frag_offset,
+                hdr.ipv4.ttl,
+                hdr.ipv4.protocol,
+                hdr.ipv4.src_addr,
+                hdr.ipv4.dst_addr },
+                hdr.ipv4.hdr_checksum,
+                HashAlgorithm.csum16);
 
+        update_checksum(	// 更新TCP校验和
+            hdr.my_wnd.isValid(),
+                { hdr.ipv4.src_addr,
+                hdr.ipv4.dst_addr,
+                (bit<8>)0x00,		// 8bit 全0填充
+                hdr.ipv4.protocol,
+                meta.TCP_length,		// TCP包的总长度，得计算得到
+                // 以上是伪首部
+                // TCP的校验和计算需要伪首部+TCP所有字段，但这里我们需要重新计算TCP校验和的情况只有增加ACK内容时，所以只使用了如下这些TCP字段值。
+                hdr.tcp.src_port,
+                hdr.tcp.dst_port,
+                hdr.tcp.seq_no,
+                hdr.tcp.ack_no,
+                hdr.tcp.data_offset,
+                hdr.tcp.res,
+                hdr.tcp.flags,
+                hdr.tcp.window,
+                hdr.tcp.urgent_ptr,
+                hdr.my_wnd.type,
+                hdr.my_wnd.length,
+                hdr.my_wnd.value,
+                hdr.options.nop_nop_timeStamps
+                },
+                hdr.tcp.checksum,
+                HashAlgorithm.csum16);
+
+        update_checksum(	// 更新TCP校验和
+            meta.isupdated,
+                { hdr.ipv4.src_addr,
+                hdr.ipv4.dst_addr,
+                (bit<8>)0x00,		// 8bit 全0填充
+                hdr.ipv4.protocol,
+                meta.TCP_length,		// TCP包的总长度，得计算得到
+                // 以上是伪首部
+                // TCP的校验和计算需要伪首部+TCP所有字段，但这里我们需要重新计算TCP校验和的情况只有增加ACK内容时，所以只使用了如下这些TCP字段值。
+                hdr.tcp.src_port,
+                hdr.tcp.dst_port,
+                hdr.tcp.seq_no,
+                hdr.tcp.ack_no,
+                hdr.tcp.data_offset,
+                hdr.tcp.res,
+                hdr.tcp.flags,
+                hdr.tcp.window,
+                hdr.tcp.urgent_ptr,
+                hdr.test_wnd.type,
+                hdr.test_wnd.length,
+                hdr.test_wnd.value,
+                hdr.options.nop_nop_timeStamps
+                },
+                hdr.tcp.checksum,
+                HashAlgorithm.csum16);
     }
 }
 //------------------------------------------------------------
@@ -700,6 +831,9 @@ control c_deparser(packet_out packet, in headers hdr) {
         packet.emit(hdr.ipv4);
         packet.emit(hdr.icmp);
         packet.emit(hdr.tcp);
+        packet.emit(hdr.my_wnd);
+        packet.emit(hdr.test_wnd);
+        packet.emit(hdr.options);
         packet.emit(hdr.udp);
     }
 }
