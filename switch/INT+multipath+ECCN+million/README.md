@@ -2,18 +2,14 @@
 
 #### 文件说明
 
-本文件夹为mininet仿真程序，同时实现多路径调度、INT和视频流的ECCN
-
-注意：ECCN功能未在mininet测试
+本文件夹为最终版p4代码
 
 包括：
 
     网络拓扑构建文件 network.py
-    交换机逻辑文件 int_multipath_eccn.p4
+    交换机逻辑文件 multimodel.p4
     交换机流表 s176/178/182/184/186/188-commands.txt
     寄存器配置文件 initial.py
-    指令运行文件 run.sh
-    垃圾清理文件 clean.sh
 
 #### 指令说明
 

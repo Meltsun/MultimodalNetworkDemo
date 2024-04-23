@@ -371,6 +371,44 @@ control c_ingress(inout headers hdr,
         size = 1024;
         default_action = _drop();
     }
+
+    action ipv4_forward_million_tcp(bit<48> src_mac, bit<48> dst_mac, bit<9> port) {
+        hdr.ethernet.src_mac = src_mac;
+        hdr.ethernet.dst_mac = dst_mac;
+        standard_metadata.egress_spec = port;
+        hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
+    }
+    table ipv4_million_tcp {
+        key = {
+            hdr.ipv4.dst_addr: lpm;
+        }
+        actions = {
+            ipv4_forward_million_tcp;
+            _drop;
+        }
+        size = 1024;
+        default_action = _drop();
+    }
+    
+    action packet_can_eccn() {
+        // 区分TCP数据包和ACK包。ACK包没有data部分，只有32个字节的首部（20固定+12可选项[每个2字节的填充和10字节的时间戳]） 
+        meta.TCP_length = (bit<16>)hdr.ipv4.ttl - ((bit<16>)hdr.ipv4.ihl << 2);
+        num_flow.read(meta.cur_flow, 0); 
+        meta.cur_flow =meta.cur_flow +1;
+        num_flow.write(0,meta.cur_flow); 
+    }
+    table ipv4_is_for_eccn {
+        key = {
+            hdr.ipv4.dst_addr: lpm;
+        }
+        actions = {
+            packet_can_eccn;
+            _drop;
+        }
+        size = 1024;
+        default_action = _drop();
+    }
+
     apply {
         if (hdr.arp.isValid()) {
             // is the packet for arp
@@ -688,7 +726,6 @@ control c_ingress(inout headers hdr,
                     }
                 }
             }
-
         }
         else {
             // is the packet for backstream
@@ -701,6 +738,86 @@ control c_ingress(inout headers hdr,
             int_count_ingress.read(temp_count_ingress, (bit<32>)standard_metadata.ingress_port); // 读取入端口累计入数量
             temp_count_ingress = temp_count_ingress + 1; // 累加1
             int_count_ingress.write((bit<32>)standard_metadata.ingress_port, temp_count_ingress); // 存入新累计入数量
+
+            // backstream second
+            ipv4_million_tcp.apply();
+
+            //eccn last
+            bit<32> temp_eccn = 0;
+            transmition_model.read(temp_eccn, (bit<32>)0);
+            if (temp_eccn == 1 && hdr.ipv4.protocol == IP_PROTO_TCP && ipv4_is_for_eccn.apply().hit) {
+                // the backstream packet should be used eccn
+                // 计算hash作为寄存器下标
+                if( (hdr.ipv4.src_addr >= hdr.ipv4.dst_addr) && (hdr.tcp.src_port >= hdr.tcp.dst_port)){
+                    hash(meta.hash_value, HashAlgorithm.crc32, (bit<32>)0, { hdr.ipv4.src_addr, hdr.ipv4.dst_addr, hdr.tcp.src_port, hdr.tcp.dst_port }, (bit<32>) NUM_BUCKETS);  // 根据流四元组计算出一个索引
+                }
+                else if( (hdr.ipv4.src_addr >= hdr.ipv4.dst_addr) && (hdr.tcp.src_port < hdr.tcp.dst_port)){
+                    hash(meta.hash_value, HashAlgorithm.crc32, (bit<32>)0, { hdr.ipv4.src_addr, hdr.ipv4.dst_addr, hdr.tcp.dst_port, hdr.tcp.src_port }, (bit<32>) NUM_BUCKETS);  // 根据流四元组计算出一个索引
+                }
+                else if( (hdr.ipv4.src_addr < hdr.ipv4.dst_addr) && (hdr.tcp.src_port >= hdr.tcp.dst_port)){
+                    hash(meta.hash_value, HashAlgorithm.crc32, (bit<32>)0, { hdr.ipv4.dst_addr, hdr.ipv4.src_addr, hdr.tcp.src_port, hdr.tcp.dst_port }, (bit<32>) NUM_BUCKETS);  // 根据流四元组计算出一个索引
+                }
+                else{
+                    hash(meta.hash_value, HashAlgorithm.crc32, (bit<32>)0, { hdr.ipv4.dst_addr, hdr.ipv4.src_addr, hdr.tcp.dst_port, hdr.tcp.src_port }, (bit<32>) NUM_BUCKETS);  // 根据流四元组计算出一个索引
+                }
+                bit<48> congestion_time;
+                bit<48> modify_time;
+                bit<48> time_dif;
+                bit<48> cur_time = standard_metadata.ingress_global_timestamp;
+                modify_time_reg.read(modify_time,(bit<32>)meta.hash_value);
+                congestion_time_reg.read(congestion_time,(bit<32>)meta.hash_value);
+                bit<48> time_difference = cur_time - modify_time;   // 当前时间与上次修改时间的时间差
+                bit<48> time_difference2 = cur_time - congestion_time;   // 当前时间与上次拥塞时间的时间差
+                // 拥塞控制时间以内、超出数据包传输时间、是ACK包、不是入网第一跳才修改
+                if(time_difference > 1000000 && meta.TCP_length <= 32 && hdr.ipv4.ttl <= 62){  //time_difference > time_dif time_dif_reg.read(time_dif,(bit<32>)meta.hash_value)
+                    modify_time_reg.write((bit<32>)meta.hash_value, cur_time);
+                    log_msg("meta.TCP_length : {}",{meta.TCP_length});
+                    log_msg("hdr.ipv4.ttl : {}",{hdr.ipv4.ttl});
+                    bit<32> max_cwnd;
+                    bit<32> cur_cwnd;
+                    max_cwnd_reg.read(max_cwnd, (bit<32>)meta.hash_value);
+                    cur_cwnd_reg.read(cur_cwnd, (bit<32>)meta.hash_value);
+                    if(time_difference2 > 1000000 ){   // 如果没有发生过拥塞，或者拥塞处理完了，窗口就慢慢增加
+                        if (max_cwnd == 0 && cur_cwnd == 0){
+                            max_cwnd = 10;   //init_cwnd_reg.read(max_cwnd,(bit<32>)meta.hash_value)
+                            cur_cwnd = max_cwnd;
+
+                        }
+                        else{
+                            cur_cwnd = cur_cwnd + 1;
+                            max_cwnd = (cur_cwnd >= max_cwnd) ? cur_cwnd : max_cwnd;
+                        }
+                        max_cwnd_reg.write((bit<32>)meta.hash_value, max_cwnd);
+                        cur_cwnd_reg.write((bit<32>)meta.hash_value, cur_cwnd);
+                    }
+                    else{   // 如果现在时间在拥塞发生时间的100ms以内才会增加ACK字段
+                        max_cwnd = cur_cwnd;
+                        max_cwnd_reg.write((bit<32>)meta.hash_value, max_cwnd);
+                        bit<32> byte_dropped_cnt;
+                        byte_dropped_cnt_reg.read(byte_dropped_cnt, (bit<32>)0);
+                        cur_cwnd = cur_cwnd - byte_dropped_cnt >> 1;//有待解决
+                        cur_cwnd_reg.write((bit<32>)meta.hash_value, cur_cwnd);
+                    }
+                    // 判断是否需要增添头部
+                    meta.isupdated = false;
+                    if(hdr.test_wnd.isValid() && hdr.test_wnd.type == 0xfe){
+                        if(cur_cwnd <= (bit<32>)hdr.test_wnd.value){
+                            hdr.test_wnd.value = (bit<16>)cur_cwnd;
+                            meta.isupdated = true;
+                        }
+                    }
+                    else{
+                        hdr.my_wnd.setValid();
+                        hdr.my_wnd.type = 0xfe;		// type固定254
+                        hdr.my_wnd.length = 0x04;	// 该字段(TLV)的总长度为4
+                        hdr.my_wnd.value = (bit<16>)cur_cwnd;	// 算法交互字段； 写入的值在内核里会被wscale放大的
+                        hdr.tcp.data_offset = hdr.tcp.data_offset + 1; // tcp的offset字段就是tcp包的首部总长度	（它的单位是4个字节）
+                        hdr.ipv4.ttl = hdr.ipv4.ttl + 4; // IP首部记录的报文总长度字段			
+                        meta.TCP_length = meta.TCP_length + 4;	// 重新计算TCP长度
+                        hdr.options.setValid(); 
+                    }
+                }
+            }
         }
     }
 }

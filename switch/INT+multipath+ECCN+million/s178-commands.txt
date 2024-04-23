@@ -1,0 +1,24 @@
+register_reset transmition_model
+
+register_reset multipath_ability
+register_reset multipath_count
+register_reset multipath_initial
+register_reset multipath_order
+
+register_reset int_byte_ingress
+register_reset int_byte_egress
+register_reset int_count_ingress
+register_reset int_count_egress
+register_reset int_last_time_ingress
+register_reset int_last_time_egress
+
+table_add ipv4_is_for_video packet_cannot_multipath 10.170.170.2/24 =>
+table_add ipv4_is_for_video packet_cannot_multipath 10.180.180.2/24 =>
+
+table_add ipv4_singlepath_lpm ipv4_singlepath 10.180.180.2/24 => a0:36:9f:08:c7:b5 e8:61:1f:37:b5:8b 2
+table_add ipv4_singlepath_lpm ipv4_singlepath 10.170.170.2/24 => a0:36:9f:08:c7:b6 a0:36:9f:d9:3b:83 3
+
+table_add probe_exact probe_forward 173 => a0:36:9f:08:c7:b4 e8:61:1f:37:b6:8f 1
+table_add probe_exact probe_forward 180 => a0:36:9f:08:c7:b5 e8:61:1f:37:b5:8b 2
+table_add probe_exact probe_forward 184 => a0:36:9f:08:c7:b7 a0:36:9f:d9:3a:e7 4
+table_add probe_exact probe_forward 188 => a0:36:9f:08:c7:b6 a0:36:9f:d9:3b:83 3
