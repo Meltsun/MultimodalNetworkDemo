@@ -1,0 +1,9 @@
+[multipath.switch.ssh]
+ip="?"
+port="?"
+user='?'
+password="?"
+show_output=false
+
+[multipath.switch.bmv2]
+port="?"

@@ -6,6 +6,7 @@ from dataclasses import dataclass,field
 import re
 import datetime
 import time
+import sys
 
 Mbps:TypeAlias = float
 NumOfPackets:TypeAlias = int
@@ -19,17 +20,33 @@ class NetworkState:
     time:datetime.datetime=field(default_factory=datetime.datetime.now)
 
 class IperfHandle:
+    """
+    在本地开启一个iperf客户端，接收运行时输出，并进行格式化。\n
+    需要python>=3.12才能在windows上运行，否则只能运行在linux上。\n
+    初始化时请传入参数列表，类似['iperf','-s','-i','1','-p','5000','-u','-e']\n
+    请使用close关闭cli和ssh连接或者直接作为上下文使用。
+    """
     stdout:BufferedReader
-    def __init__(self) -> None:
-        self.process = subprocess.Popen(['iperf','-s','-i','1','-p','5000','-u','-e'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    def __init__(self,cmd:List[str]) -> None:
+        self.process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         assert isinstance(self.process.stdout,BufferedReader)
         self.stdout = self.process.stdout
         for _ in range(5):
             self.stdout.readline()
-        os.set_blocking(self.stdout.fileno(),False)
+        if sys.version_info >= (3, 12) or sys.platform.startswith('linux'):
+            os.set_blocking(self.stdout.fileno(),False) # type: ignore
+        else:
+            raise Exception("需要运行在python>3.12或linux平台上")
     
     def close(self) -> None:
         self.process.terminate()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+        return False
 
     @staticmethod
     def phase_line(line:str) -> Optional[NetworkState]:
@@ -59,7 +76,7 @@ class IperfHandle:
         return state
 
     T = TypeVar("T",Literal[True],Literal[False])
-    def get_network_state(self,phase:T=True) -> List[NetworkState]:
+    def get_network_states(self,phase:T=True) -> List[NetworkState]:
         """
         获取实例化或上次调用此方法后的所有输出，并解析为NetworkState。
         如果没有任何输出，会抛出错误。（这通常是因为iperf3客户端已经关闭）
@@ -86,13 +103,13 @@ class IperfHandle:
         """
         获取这段时间的网络状态
         """
-        self.get_network_state(False)
+        self.get_network_states(False)
         time.sleep(duration)
-        return self.get_network_state()
+        return self.get_network_states()
 
 
 if __name__ == '__main__':
-    handle = IperfHandle()
+    handle = IperfHandle(['iperf','-s','-i','1','-p','5000','-u','-e'])
     while True:
         input()
         print("================================================")

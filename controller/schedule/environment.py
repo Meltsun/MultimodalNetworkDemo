@@ -1,9 +1,33 @@
+from dataclasses import dataclass, field
+import datetime
 from io import BufferedReader
 from typing_extensions import TypeAlias,Iterable,Callable,TypeVar,Union,Sequence,NamedTuple,cast,Tuple
 from itertools import permutations,product
 
 from iperf_handle import NetworkState,IperfHandle
-from bmv2_handle import MultipathState,download_multipath_state
+from bmv2_handle import SimpleSwitchCli
+from utils import config as all_config,logger
+
+_config= all_config['multipath']['switch']
+
+@dataclass
+class MultipathState:
+    num:Tuple[int,int,int]
+    order:Tuple[int,int,int]
+    time:datetime.datetime=field(default_factory=datetime.datetime.now)
+
+    cli = SimpleSwitchCli(
+        ssh_ip = _config['ssh']['ip'],
+        ssh_port = _config['ssh']['port'],
+        user = _config['ssh']['user'],
+        password = _config['ssh']['password'],
+        bmv2_thrift_port = _config['bmv2']['port'],
+        logger = logger
+    )
+    def download_multipath_state(self)->None:
+        cli = MultipathState.cli
+        #TODO
+        pass
 
 #给外部返回的总的state
 class AllState(NamedTuple):
@@ -24,11 +48,8 @@ class AllState(NamedTuple):
             get_avg_bandwidth(net_states),
             get_percentage_out_of_order(net_states),
             *mp_state.num,
-            1,2,3,
+            *mp_state.order,
         )
-
-Mbps:TypeAlias = float
-NumOfPackets:TypeAlias = int
 
 delta_actions = ((0,0,0),*permutations((1,0,-1),3))
 order_actions = permutations((1,2,3),3)
@@ -66,7 +87,7 @@ class Environment:
     mp_state:MultipathState
 
     def __init__(self, max_total_bw:float) -> None:
-        self.iperf_handle = IperfHandle()
+        self.iperf_handle = IperfHandle(['iperf','-s','-i','1','-p','5000','-u','-e'])
         self.max_total_bw=max_total_bw
     
     def reset(self,wait_clients=True) -> AllState:
@@ -76,7 +97,7 @@ class Environment:
             (5,5,5),
             (1,2,3),
         )
-        state = AllState.from_net_and_mp_state(self.iperf_handle.get_network_state(),self.mp_state)
+        state = AllState.from_net_and_mp_state(self.iperf_handle.get_network_states(),self.mp_state)
         self._reseted=True
         return state
 
@@ -90,7 +111,7 @@ class Environment:
             order=action[3:]
         )
 
-        download_multipath_state(self.mp_state)
+        self.mp_state.download_multipath_state()
         net_states=self.iperf_handle.monitor_for_seconds(1.1)
 
         reward = 0.3 * get_avg_bandwidth(net_states)/self.max_total_bw - 0.7 * get_percentage_out_of_order(net_states)
@@ -100,6 +121,8 @@ class Environment:
     
     def close(self) -> None:
         self.iperf_handle.close()
+
+
 
 if __name__ == "__main__":
     env=Environment(max_total_bw=10)
