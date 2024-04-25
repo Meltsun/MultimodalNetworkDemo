@@ -6,7 +6,7 @@
     sudo chmod 4755 /usr/bin/dumpcap
     sudo gpasswd -a xxx wireshark
 
-2、将文件dissector_INT.lua复制进入home文件夹
+2、将文件dissector_INT.lua复制进入home/xxx文件夹
 
 3、添加wireshark插件(xxx为用户名)
 
