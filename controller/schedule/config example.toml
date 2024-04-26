@@ -3,7 +3,7 @@ ip="?"
 port="?"
 user='?'
 password="?"
-show_output=false
 
 [multipath.switch.bmv2]
 port="?"
+register_indexes=[2,3,4]#三路对应的寄存器序号

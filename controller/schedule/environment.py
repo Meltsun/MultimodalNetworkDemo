@@ -1,33 +1,25 @@
 from dataclasses import dataclass, field
 import datetime
 from io import BufferedReader
-from typing_extensions import TypeAlias,Iterable,Callable,TypeVar,Union,Sequence,NamedTuple,cast,Tuple
+from typing_extensions import Iterable,Callable,TypeVar,Union,Sequence,NamedTuple,cast,Tuple,Dict,TypedDict
 from itertools import permutations,product
 
 from iperf_handle import NetworkState,IperfHandle
-from bmv2_handle import SimpleSwitchCli
+from bmv2_handle import SimpleSwitchHandle,RegisterListHandle
 from utils import config as all_config,logger
 
 _config= all_config['multipath']['switch']
+
+class Registers(TypedDict):
+    count:RegisterListHandle
+    initial:RegisterListHandle
+    order:RegisterListHandle
 
 @dataclass
 class MultipathState:
     num:Tuple[int,int,int]
     order:Tuple[int,int,int]
     time:datetime.datetime=field(default_factory=datetime.datetime.now)
-
-    cli = SimpleSwitchCli(
-        ssh_ip = _config['ssh']['ip'],
-        ssh_port = _config['ssh']['port'],
-        user = _config['ssh']['user'],
-        password = _config['ssh']['password'],
-        bmv2_thrift_port = _config['bmv2']['port'],
-        logger = logger
-    )
-    def download_multipath_state(self)->None:
-        cli = MultipathState.cli
-        #TODO
-        pass
 
 #给外部返回的总的state
 class AllState(NamedTuple):
@@ -89,6 +81,25 @@ class Environment:
     def __init__(self, max_total_bw:float) -> None:
         self.iperf_handle = IperfHandle(['iperf','-s','-i','1','-p','5000','-u','-e'])
         self.max_total_bw=max_total_bw
+
+        logger.info("正在连接bmv2")
+        logger.info(str(_config))
+        self.switch = SimpleSwitchHandle(
+                ssh_ip = _config['ssh']['ip'],
+                ssh_port = _config['ssh']['port'],
+                user = _config['ssh']['user'],
+                password = _config['ssh']['password'],
+                bmv2_thrift_port = _config['bmv2']['port'],
+                logger = logger
+            )
+        logger.info("已连接bmv2")
+
+        register_indexes=_config['bmv2']['register_indexes']
+        self.registers=Registers(
+            initial = RegisterListHandle(self.switch,'register_initial',register_indexes),
+            count = RegisterListHandle(self.switch,'register_count',register_indexes),
+            order = RegisterListHandle(self.switch,'register_order',register_indexes)
+        )
     
     def reset(self,wait_clients=True) -> AllState:
         if wait_clients:
@@ -100,6 +111,16 @@ class Environment:
         state = AllState.from_net_and_mp_state(self.iperf_handle.get_network_states(),self.mp_state)
         self._reseted=True
         return state
+    
+    def download_multipath_state(self,registers:Registers)->None:
+        register_indexes=_config['bmv2']['register_indexes']
+        for i in ('count','initial','order'):
+            registers[i].reset()
+        for i,v in zip(register_indexes,self.mp_state.num):
+            registers['count'][i] = v
+            registers['initial'][i] = v
+        for i,v in zip(register_indexes,self.mp_state.order):
+            registers['order'][i] = v
 
     def step(self,action_index:int):
         if not getattr(self,'_reseted',False):
@@ -111,7 +132,6 @@ class Environment:
             order=action[3:]
         )
 
-        self.mp_state.download_multipath_state()
         net_states=self.iperf_handle.monitor_for_seconds(1.1)
 
         reward = 0.3 * get_avg_bandwidth(net_states)/self.max_total_bw - 0.7 * get_percentage_out_of_order(net_states)

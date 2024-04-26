@@ -2,7 +2,7 @@ import typing
 import fabric
 import io
 import queue
-import typing
+import typing_extensions as typing
 import invoke
 import logging
 
@@ -34,7 +34,7 @@ class _CommandIO(typing.IO):
     def __getattr__(self, name: str):
         raise Exception(f"意外的方法调用，请实现这个方法:{name}")
 
-class SimpleSwitchCli:
+class SimpleSwitchHandle:
     """
     用于通过ssh向远程的bmv2 simple switch发送命令。\n
     init会阻塞直到连接完成。\n
@@ -47,7 +47,7 @@ class SimpleSwitchCli:
         self._lifespan = self._make_lifespan(ssh_ip,ssh_port,user,password,bmv2_thrift_port)
         next(self._lifespan)
     
-    def __enter__(self):
+    def __enter__(self) -> typing.Self:
         return self
 
     def close(self) -> None:
@@ -61,7 +61,7 @@ class SimpleSwitchCli:
             pass
         self.logger.info(f"剩余目标交换机cli输出：\n{self.stdout.getvalue()}")
     
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, exc_type, exc_value, traceback) -> typing.Literal[False]:
         self.close()
         return False
     
@@ -99,6 +99,25 @@ class SimpleSwitchCli:
         """
         return self.stdout.getvalue()
 
+class RegisterListHandle:
+    values:typing.Dict[int,typing.Union[int,None]]
+    def __init__(self,switch:SimpleSwitchHandle,name:str,indexes:typing.Sequence[int]) -> None:
+        self.switch = switch
+        self.name = name
+        self.values = {i:None for i in indexes}
+
+    def reset(self) -> None:
+        for i in self.values.keys():
+            self.values[i]=None
+        self.switch.send_cmd(f"register_reset {self.name}")
+
+    def __getitem__(self, index:int) -> typing.Union[int,None]:
+        return self.values[index]
+    
+    def __setitem__(self, index:int, value:int):
+        self.values[index]=value
+        self.switch.send_cmd(f"register_write {self.name} {index} {value}")
+       
 if __name__=="__main__":
     import time
     from utils import config as all_config,logger
@@ -109,7 +128,7 @@ if __name__=="__main__":
     password = _config['ssh']['password']
     bmv2_port = _config['bmv2']['port']
 
-    cli = SimpleSwitchCli(host,port,user,password,bmv2_port,logger)
+    cli = SimpleSwitchHandle(host,port,user,password,bmv2_port,logger)
     cli.send_cmd("help")
     cli.send_cmd("show_actions")
     cli.send_cmd("show_ports")
