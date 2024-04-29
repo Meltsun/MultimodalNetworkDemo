@@ -76,7 +76,7 @@ class Environment:
     stdout:BufferedReader
     iperf_handle:IperfHandle
     max_total_bw:float
-    mp_state:MultipathState
+    mp_state:MultipathState#不要直接写这个值，总是使用set_multipath_state，避免造成交换机行为和这个值不一致。
 
     def __init__(self, max_total_bw:float) -> None:
         self.iperf_handle = IperfHandle(['iperf','-s','-i','1','-p','5000','-u','-e'])
@@ -104,15 +104,17 @@ class Environment:
     def reset(self,wait_clients=True) -> AllState:
         if wait_clients:
             input("请启动或重启iperf客户端，并按下回车以继续程序")
-        self.mp_state=MultipathState(
+        self.set_multipath_state(MultipathState(
             (5,5,5),
             (1,2,3),
-        )
+        ))
         state = AllState.from_net_and_mp_state(self.iperf_handle.get_network_states(),self.mp_state)
         self._reseted=True
         return state
     
-    def download_multipath_state(self,registers:Registers)->None:
+    def set_multipath_state(self,mp_state:MultipathState)->None:
+        self.mp_state = mp_state
+        registers = self.registers
         register_indexes=_config['bmv2']['register_indexes']
         for i in ('count','initial','order'):
             registers[i].reset()
@@ -127,9 +129,11 @@ class Environment:
             raise Exception("必须先执行reset")
         
         action=actions[action_index]
-        self.mp_state=MultipathState(
-            num=cast(Tuple[int,int,int],tuple(i+j for i,j in zip(self.mp_state.num,action[:3]))),
-            order=action[3:]
+        self.set_multipath_state(
+            MultipathState(
+                num=cast(Tuple[int,int,int],tuple(i+j for i,j in zip(self.mp_state.num,action[:3]))),
+                order=action[3:]
+            )
         )
 
         net_states=self.iperf_handle.monitor_for_seconds(1.1)

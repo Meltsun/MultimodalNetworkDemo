@@ -101,7 +101,7 @@ class DQN:
         self.count += 1
         return dqn_loss
 
-if __name__ == '__main__':
+def main():
     # define the hardware deployment of torch, on cpu or gpu(cuda)
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     
@@ -164,5 +164,6 @@ if __name__ == '__main__':
             #break
         #break
         
-        
+if __name__ == '__main__':
+    main()
     
