@@ -4,18 +4,26 @@ from packet_handle import *
 from threading import Thread
 import time
 import requests
+import re
+from concurrent.futures import ThreadPoolExecutor
 
-# 客户端服务器
 
-client_host = '192.168.199.170'
 username = 'sinet'
 password = 'bjtungirc'
+yes = 'yes'
 
+# 客户端和服务器ip
+client_host = '192.168.199.170'
 server_host = '192.168.199.180'
 
 interface = 'eno1'  # 指定要监听的网络接口
-duration = 8  # 指定网卡监听时间，一般比视频时长稍大一些
-yes = 'yes'
+duration = 10  # 指定网卡监听时间，一般比视频时长稍大一些
+
+# 180视频服务器端口（目前，之后可能会更改）
+quic_port = 8000
+webrtc_port = 8001
+https_port = 8002
+
 
 # pcap 文件路径
 server_path = "/home/sinet/project_measure/server.pcap"
@@ -51,24 +59,43 @@ def start_client_tcpdump(host, username, password, interface):
 
     with Connection(host=client_host, user=username, connect_kwargs={"password": password}) as conn:
         conn.run(f"sudo timeout {duration} tcpdump -i {interface} src {server_host} and dst {client_host} -w client.pcap", pty=True, watchers=[sudo_pass], warn=True)
-
         # 将抓到的包通过scp发送给180服务器
         conn.run(f"scp /home/sinet/client.pcap {username}@{server_host}:{client_path}", pty=True, watchers=[connect_pass, scp_pass], warn=True)
 
 
+def get_port():
+    sudo_pass = Responder(
+        pattern=f'\[sudo\] password for {username}:',
+        response=password + '\n'
+    )
+    
+    with Connection(host=server_host, user=username, connect_kwargs={"password": password}) as conn:
+        result = conn.run(f"sudo timeout 10 tcpdump -i eno1 port {quic_port} or port {webrtc_port} or port {https_port} -n -vv | grep {server_host} | sed -n '1p'" , pty=True, watchers=[sudo_pass], warn=True)
+        # 处理输出，获取服务器端口号
+        output = result.stdout.strip()
+        match = re.search(r'(\b192\.168\.199\.180\b)\.(\d+)', output)
+
+        if match:
+            ip_port = match.group(2)
+            # print(ip_port)
+            return ip_port
+        else:
+            print("未探测到服务器端口！")
+            return 0
+    
+    
 start_time = time.time()
 
-t1 = Thread(target=start_client_tcpdump, args=(client_host, username, password, interface))
-t2 = Thread(target=start_server_tcpdump, args=(server_host, username, password, interface))
-threads = [t1, t2]
+# 开启多线程
+with ThreadPoolExecutor() as executor:
+    # 提交任务
+    t1 = executor.submit(start_client_tcpdump, client_host, username, password, interface)
+    t2 = executor.submit(start_server_tcpdump, server_host, username, password, interface)
+    t3 = executor.submit(get_port)
 
-
-for t in threads:
-    t.start()
-
-for t in threads:
-    t.join()
-
+    # 等待任务完成并获取端口号结果
+    ip_port = int(t3.result())
+    
 
 # 对数据包进行处理
 # 服务端
@@ -81,14 +108,24 @@ resolution = extract_resolution(video_path)
 
 end_time = time.time()
 
+
 print(end_time - start_time)
 
 print("尾时延(s)：", tail_delay)
 print("卡顿率(%)：", congestion_rate)
 print("清晰度：", resolution)
+print("服务器端口号：", ip_port)
 
+if ip_port == quic_port:
+    protocols = 22
+elif ip_port == webrtc_port:
+    protocols = 23
+elif ip_port == https_port:
+    protocols = 24
+else:
+    protocols = 0
 
-information = {"tail_delay":tail_delay, "congestion_rate":congestion_rate, "resolution_height":resolution[0], "resolution_width":resolution[1]}
+information = {"tail_delay":tail_delay, "congestion_rate":congestion_rate, "resolution_height":resolution[0], "resolution_width":resolution[1], "protocols":protocols}
 
 print(information)
 
@@ -106,3 +143,7 @@ data = information
     #print("数据成功发送到数据库接口！")
 #else:
 #    print("数据发送失败。)
+
+
+
+
