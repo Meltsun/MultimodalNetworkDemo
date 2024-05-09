@@ -8,16 +8,16 @@ import re
 from concurrent.futures import ThreadPoolExecutor
 
 
-username = 'sinet'
-password = 'bjtungirc'
-yes = 'yes'
+duration = 10  # 指定网卡监听时间，一般比视频时长稍大一些
+interface = 'eno1'  # 指定要监听的网络接口
 
 # 客户端和服务器ip
 client_host = '192.168.199.170'
 server_host = '192.168.199.180'
 
-interface = 'eno1'  # 指定要监听的网络接口
-duration = 10  # 指定网卡监听时间，一般比视频时长稍大一些
+username = 'sinet'
+password = 'bjtungirc'
+yes = 'yes'
 
 # 180视频服务器端口（目前，之后可能会更改）
 quic_port = 8000
@@ -113,7 +113,7 @@ print(end_time - start_time)
 
 print("尾时延(s)：", tail_delay)
 print("卡顿率(%)：", congestion_rate)
-print("清晰度：", resolution)
+print("分辨率：", resolution)
 print("服务器端口号：", ip_port)
 
 if ip_port == quic_port:
@@ -125,24 +125,25 @@ elif ip_port == https_port:
 else:
     protocols = 0
 
-information = {"tail_delay":tail_delay, "congestion_rate":congestion_rate, "resolution_height":resolution[0], "resolution_width":resolution[1], "protocols":protocols}
+information = {"tail_delay":tail_delay, "congestion_rate":congestion_rate, "resolution_height":resolution[0], "resolution_width":resolution[1], "protocol":str(protocols)}
 
 print(information)
 
 # 将指标传输至数据库（目前数据库没有部署在服务器上）
-url = 'http://192.168.199.110:8000/Videosituation/add'
+url = 'http://219.242.112.215:8000/Videosituation/add'
 
 # 要发送的数据
 data = information
 
+
 # 发送 POST 请求
-#response = requests.post(url, json=data)
+response = requests.post(url, json=data)
 
 # 检查响应
-#if response.status_code == 200:
-    #print("数据成功发送到数据库接口！")
-#else:
-#    print("数据发送失败。)
+if response.status_code == 200:
+    print("数据成功发送到数据库接口！")
+else:
+    print("数据发送失败。")
 
 
 

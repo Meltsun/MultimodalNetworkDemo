@@ -11,7 +11,7 @@ def extract_id_timestamp(file_path):
             eth = dpkt.ethernet.Ethernet(buf)
             if isinstance(eth.data, dpkt.ip.IP):
                 ip = eth.data
-                if isinstance(ip.data, dpkt.udp.UDP):
+                if isinstance(ip.data, dpkt.udp.UDP) or isinstance(ip.data, dpkt.tcp.TCP):
                     packets[ip.id] = timestamp
     return packets
 
