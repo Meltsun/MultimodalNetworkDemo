@@ -412,7 +412,51 @@ control c_ingress(inout headers hdr,
     apply {
         if (hdr.arp.isValid()) {
             // is the packet for arp
-            if (hdr.arp.target_ip == 0x0aaaaa01) {
+            if (hdr.arp.target_ip == 0x0aa6a601) {
+                //ask who is 10.166.166.1
+                hdr.ethernet.dst_mac = hdr.ethernet.src_mac;
+                hdr.ethernet.src_mac = 0x00000000086;
+                hdr.arp.OPER = 2;
+                hdr.arp.target_ha = hdr.arp.sender_ha;
+                hdr.arp.target_ip = hdr.arp.sender_ip;
+                hdr.arp.sender_ip = 0x0aa6a601;
+                hdr.arp.sender_ha = 0x000000000186;
+                standard_metadata.egress_spec = standard_metadata.ingress_port;
+            }
+            else if (hdr.arp.target_ip == 0x0aa8a801) {
+                //ask who is 10.168.168.1
+                hdr.ethernet.dst_mac = hdr.ethernet.src_mac;
+                hdr.ethernet.src_mac = 0x000000000188;
+                hdr.arp.OPER = 2;
+                hdr.arp.target_ha = hdr.arp.sender_ha;
+                hdr.arp.target_ip = hdr.arp.sender_ip;
+                hdr.arp.sender_ip = 0x0aa8a801;
+                hdr.arp.sender_ha = 0x000000000188;
+                standard_metadata.egress_spec = standard_metadata.ingress_port;
+            }            
+            else if (hdr.arp.target_ip == 0x0aa4a401) {
+                //ask who is 10.164.164.1
+                hdr.ethernet.dst_mac = hdr.ethernet.src_mac;
+                hdr.ethernet.src_mac = 0x000000000184;
+                hdr.arp.OPER = 2;
+                hdr.arp.target_ha = hdr.arp.sender_ha;
+                hdr.arp.target_ip = hdr.arp.sender_ip;
+                hdr.arp.sender_ip = 0x0aa4a401;
+                hdr.arp.sender_ha = 0x000000000184;
+                standard_metadata.egress_spec = standard_metadata.ingress_port;
+            }
+            else if (hdr.arp.target_ip == 0x0aa2a201) {
+                //ask who is 10.162.162.1
+                hdr.ethernet.dst_mac = hdr.ethernet.src_mac;
+                hdr.ethernet.src_mac = 0x000000000182;
+                hdr.arp.OPER = 2;
+                hdr.arp.target_ha = hdr.arp.sender_ha;
+                hdr.arp.target_ip = hdr.arp.sender_ip;
+                hdr.arp.sender_ip = 0x0aa2a201;
+                hdr.arp.sender_ha = 0x000000000182;
+                standard_metadata.egress_spec = standard_metadata.ingress_port;
+            }
+            else if (hdr.arp.target_ip == 0x0aaaaa01) {
                 //ask who is 10.170.170.1
                 hdr.ethernet.dst_mac = hdr.ethernet.src_mac;
                 hdr.ethernet.src_mac = 0x000000000176;
@@ -423,17 +467,39 @@ control c_ingress(inout headers hdr,
                 hdr.arp.sender_ha = 0x000000000176;
                 standard_metadata.egress_spec = standard_metadata.ingress_port;
             }
+            else if (hdr.arp.target_ip == 0x0aacac01) {
+                //ask who is 10.172.172.1
+                hdr.ethernet.dst_mac = hdr.ethernet.src_mac;
+                hdr.ethernet.src_mac = 0x000000000176;
+                hdr.arp.OPER = 2;
+                hdr.arp.target_ha = hdr.arp.sender_ha;
+                hdr.arp.target_ip = hdr.arp.sender_ip;
+                hdr.arp.sender_ip = 0x0aacac01;
+                hdr.arp.sender_ha = 0x000000000176;
+                standard_metadata.egress_spec = standard_metadata.ingress_port;
+            }
+            else if (hdr.arp.target_ip == 0x0aaeae01) {
+                //ask who is 10.174.174.1
+                hdr.ethernet.dst_mac = hdr.ethernet.src_mac;
+                hdr.ethernet.src_mac = 0x000000000178;
+                hdr.arp.OPER = 2;
+                hdr.arp.target_ha = hdr.arp.sender_ha;
+                hdr.arp.target_ip = hdr.arp.sender_ip;
+                hdr.arp.sender_ip = 0x0aaeae01;
+                hdr.arp.sender_ha = 0x000000000178;
+                standard_metadata.egress_spec = standard_metadata.ingress_port;
+            }
             else if (hdr.arp.target_ip == 0x0ab4b401) {
                 //ask who is 10.180.180.1
                 hdr.ethernet.dst_mac = hdr.ethernet.src_mac;
-                hdr.ethernet.src_mac = 0x000000000180;
+                hdr.ethernet.src_mac = 0x000000000178;
                 hdr.arp.OPER = 2;
                 hdr.arp.target_ha = hdr.arp.sender_ha;
                 hdr.arp.target_ip = hdr.arp.sender_ip;
                 hdr.arp.sender_ip = 0x0ab4b401;
-                hdr.arp.sender_ha = 0x000000000180;
+                hdr.arp.sender_ha = 0x000000000178;
                 standard_metadata.egress_spec = standard_metadata.ingress_port;
-            }
+            }      
         }
         else if (hdr.probe.isValid()) {
             // is the packet for int
@@ -831,22 +897,22 @@ control c_egress(inout headers hdr,
         }
         else if (hdr.probe.isValid()) {
             // is the packet for int
-            hdr.probe_data[0].port_egress = (bit<8>)standard_metadata.egress_spec; // 存入出端口号
+            hdr.probe_data[0].port_egress = (bit<8>)standard_metadata.egress_port; // 存入出端口号
             bit<32> temp_byte_egress = 0;
-            int_byte_egress.read(temp_byte_egress, (bit<32>)standard_metadata.egress_spec); // 读取出端口累计出流量
+            int_byte_egress.read(temp_byte_egress, (bit<32>)standard_metadata.egress_port); // 读取出端口累计出流量
             hdr.probe_data[0].byte_egress = temp_byte_egress; // 存入出端口累计出流量
             temp_byte_egress = 0; // 累加出流量清零
-            int_byte_egress.write((bit<32>)standard_metadata.egress_spec, temp_byte_egress); // 存入新累计出流量
+            int_byte_egress.write((bit<32>)standard_metadata.egress_port, temp_byte_egress); // 存入新累计出流量
             bit<32> temp_count_egress = 0;
-            int_count_egress.read(temp_count_egress, (bit<32>)standard_metadata.egress_spec); // 读取出端口累计出数量
+            int_count_egress.read(temp_count_egress, (bit<32>)standard_metadata.egress_port); // 读取出端口累计出数量
             hdr.probe_data[0].count_egress = temp_count_egress; // 存入出端口累计出数量
             temp_count_egress = 0; // 累加出数量清零
-            int_count_egress.write((bit<32>)standard_metadata.egress_spec, temp_count_egress); // 存入新累计出数量
+            int_count_egress.write((bit<32>)standard_metadata.egress_port, temp_count_egress); // 存入新累计出数量
             bit<48> temp_last_time_egress = 0;
-            int_last_time_egress.read(temp_last_time_egress, (bit<32>)standard_metadata.egress_spec); // 读取出端口上一个INT包进出时间
+            int_last_time_egress.read(temp_last_time_egress, (bit<32>)standard_metadata.egress_port); // 读取出端口上一个INT包进出时间
             hdr.probe_data[0].last_time_egress = temp_last_time_egress; // 存入出端口上一个INT包进出时间
             temp_last_time_egress = standard_metadata.egress_global_timestamp; // 更新上一个INT包进出时间
-            int_last_time_egress.write((bit<32>)standard_metadata.egress_spec, temp_last_time_egress);  // 存入新上一个INT包进出时间
+            int_last_time_egress.write((bit<32>)standard_metadata.egress_port, temp_last_time_egress);  // 存入新上一个INT包进出时间
             hdr.probe_data[0].current_time_egress = standard_metadata.egress_global_timestamp;  // 存入出端口当前INT包进出时间
             hdr.probe_data[0].qdepth = (bit<32>)standard_metadata.deq_qdepth; // 存入队列深度
         }
@@ -854,13 +920,13 @@ control c_egress(inout headers hdr,
             // is the packet for video or backstream
             // int last
             bit<32> temp_byte_egress = 0;
-            int_byte_egress.read(temp_byte_egress, (bit<32>)standard_metadata.egress_spec); // 读取出端口累计出流量
+            int_byte_egress.read(temp_byte_egress, (bit<32>)standard_metadata.egress_port); // 读取出端口累计出流量
             temp_byte_egress = temp_byte_egress + standard_metadata.packet_length; // 累加当前出流量
-            int_byte_egress.write((bit<32>)standard_metadata.egress_spec, temp_byte_egress); // 存出新累计出流量
+            int_byte_egress.write((bit<32>)standard_metadata.egress_port, temp_byte_egress); // 存出新累计出流量
             bit<32> temp_count_egress = 0;
-            int_count_egress.read(temp_count_egress, (bit<32>)standard_metadata.egress_spec); // 读取出端口累计出数量
+            int_count_egress.read(temp_count_egress, (bit<32>)standard_metadata.egress_port); // 读取出端口累计出数量
             temp_count_egress = temp_count_egress + 1; // 累加1
-            int_count_egress.write((bit<32>)standard_metadata.egress_spec, temp_count_egress); // 存出新累计出数量
+            int_count_egress.write((bit<32>)standard_metadata.egress_port, temp_count_egress); // 存出新累计出数量
         }
     }
 }
