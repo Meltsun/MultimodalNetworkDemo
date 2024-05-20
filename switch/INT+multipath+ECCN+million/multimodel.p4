@@ -392,7 +392,7 @@ control c_ingress(inout headers hdr,
     
     action packet_can_eccn() {
         // 区分TCP数据包和ACK包。ACK包没有data部分，只有32个字节的首部（20固定+12可选项[每个2字节的填充和10字节的时间戳]） 
-        meta.TCP_length = (bit<16>)hdr.ipv4.ttl - ((bit<16>)hdr.ipv4.ihl << 2);
+        meta.TCP_length = (bit<16>)hdr.ipv4.total_len - ((bit<16>)hdr.ipv4.ihl << 2);
         num_flow.read(meta.cur_flow, 0); 
         meta.cur_flow =meta.cur_flow +1;
         num_flow.write(0,meta.cur_flow); 
@@ -717,7 +717,7 @@ control c_ingress(inout headers hdr,
             if (temp_eccn == 1 && hdr.ipv4.protocol == IP_PROTO_TCP) {
                 // the packet should be used eccn
                 // 区分TCP数据包和ACK包。ACK包没有data部分，只有32个字节的首部（20固定+12可选项[每个2字节的填充和10字节的时间戳]） 
-                meta.TCP_length = (bit<16>)hdr.ipv4.ttl - ((bit<16>)hdr.ipv4.ihl << 2);
+                meta.TCP_length = (bit<16>)hdr.ipv4.total_len - ((bit<16>)hdr.ipv4.ihl << 2);
                 num_flow.read(meta.cur_flow, 0); 
                 meta.cur_flow =meta.cur_flow +1;
                 num_flow.write(0,meta.cur_flow); 
