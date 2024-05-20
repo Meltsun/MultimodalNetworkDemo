@@ -56,7 +56,7 @@ register<bit<48>>(MAX_PORTS) int_last_time_egress;
 // 存储上一个INT包离开出端口时间，INT协议使用，int_last_time_egress[1]代表端口1的出INT包时间
 
 // ECCN寄存器
-register<bit<48>>(1) congestion_time_reg;
+register<bit<48>>(NUM_BUCKETS) congestion_time_reg;
 // 最近一次发生拥塞的时间，此时间的后一秒内收到的ACK都要被增加my_wnd字段
 register<bit<48>>(1) num_flow;
 // 统计经过数据流数量(有问题，只加)
