@@ -753,7 +753,7 @@ control c_ingress(inout headers hdr,
                     cur_cwnd_reg.read(cur_cwnd, (bit<32>)meta.hash_value);
                     if(time_difference2 > 1000000 ){   // 如果没有发生过拥塞，或者拥塞处理完了，窗口就慢慢增加
                         if (max_cwnd == 0 && cur_cwnd == 0){
-                            max_cwnd = 10;   //init_cwnd_reg.read(max_cwnd,(bit<32>)meta.hash_value)
+                            max_cwnd = 100;   //init_cwnd_reg.read(max_cwnd,(bit<32>)meta.hash_value)
                             cur_cwnd = max_cwnd;
 
                         }
@@ -786,7 +786,7 @@ control c_ingress(inout headers hdr,
                         hdr.my_wnd.length = 0x04;	// 该字段(TLV)的总长度为4
                         hdr.my_wnd.value = (bit<16>)cur_cwnd;	// 算法交互字段； 写入的值在内核里会被wscale放大的
                         hdr.tcp.data_offset = hdr.tcp.data_offset + 1; // tcp的offset字段就是tcp包的首部总长度	（它的单位是4个字节）
-                        hdr.ipv4.ttl = hdr.ipv4.ttl + 4; // IP首部记录的报文总长度字段			
+                        hdr.ipv4.total_len = hdr.ipv4.total_len + 4; // IP首部记录的报文总长度字段			
                         meta.TCP_length = meta.TCP_length + 4;	// 重新计算TCP长度
                         hdr.options.setValid(); 
                     }
@@ -845,7 +845,7 @@ control c_ingress(inout headers hdr,
                     cur_cwnd_reg.read(cur_cwnd, (bit<32>)meta.hash_value);
                     if(time_difference2 > 1000000 ){   // 如果没有发生过拥塞，或者拥塞处理完了，窗口就慢慢增加
                         if (max_cwnd == 0 && cur_cwnd == 0){
-                            max_cwnd = 10;   //init_cwnd_reg.read(max_cwnd,(bit<32>)meta.hash_value)
+                            max_cwnd = 100;   //init_cwnd_reg.read(max_cwnd,(bit<32>)meta.hash_value)
                             cur_cwnd = max_cwnd;
 
                         }
@@ -878,7 +878,7 @@ control c_ingress(inout headers hdr,
                         hdr.my_wnd.length = 0x04;	// 该字段(TLV)的总长度为4
                         hdr.my_wnd.value = (bit<16>)cur_cwnd;	// 算法交互字段； 写入的值在内核里会被wscale放大的
                         hdr.tcp.data_offset = hdr.tcp.data_offset + 1; // tcp的offset字段就是tcp包的首部总长度	（它的单位是4个字节）
-                        hdr.ipv4.ttl = hdr.ipv4.ttl + 4; // IP首部记录的报文总长度字段			
+                        hdr.ipv4.total_len = hdr.ipv4.total_len + 4; // IP首部记录的报文总长度字段			
                         meta.TCP_length = meta.TCP_length + 4;	// 重新计算TCP长度
                         hdr.options.setValid(); 
                     }
