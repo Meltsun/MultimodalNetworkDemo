@@ -5,9 +5,9 @@ import random
 import numpy as np
 import torch.nn.functional as F
 import random
-import typing_extensions as tpht
+import typing_extensions as typing
 
-from .environment import Environment,actions
+from .environment import Environment,actions,AllState
 from .utils import logger
 
 class ReplayBuffer:
@@ -55,7 +55,7 @@ class DQN:
         self.action = actions
 
 
-    def take_action(self, state, bw, bw1, bw2, bw3)->int:  # get the action index from NN module
+    def take_action(self, state:AllState, bw, bw1, bw2, bw3)->int:  # get the action index from NN module
         def is_action_ok(action_index) -> bool:
             p1 = state[2] + self.action[action_index][0]
             p2 = state[3] + self.action[action_index][1]
@@ -68,17 +68,14 @@ class DQN:
                     return True
             return False
         if np.random.random() > self.epsilon:
-            state1 = state.tolist()
-            state1 = torch.tensor([state1], dtype=torch.float).to(self.device)
+            state1 = torch.tensor([state], dtype=torch.float).to(self.device)
             action_index = self.q_net(state1).argmax().item()
             if is_action_ok(action_index):
-                return tpht.cast(int,action_index)
-        else:
-            while True:
-                action_index = np.random.randint(self.action_dim)
-                if is_action_ok(action_index):
-                    return tpht.cast(int,action_index)
-        raise #实际上永远运行不到这里，但类型检查器无法分析random+死循环，写个raise让它不报错
+                return typing.cast(int,action_index)
+        while True:
+            action_index = np.random.randint(self.action_dim)
+            if is_action_ok(action_index):
+                return typing.cast(int,action_index)
 
     def update(self, transition_dict): # update NN module, q net, q target(maybe)
         states = torch.tensor(transition_dict['states'], dtype=torch.float).to(self.device)
@@ -142,7 +139,7 @@ def main():
         #done = False # initial done
         logger.debug(f"round {i_episode}")
 
-        while 1: # start learning
+        while True: # start learning
             action = agent.take_action(state, bw, bw1, bw2, bw3) # get the action index from NN module
             next_state, reward = env.step(action) # calculate parameter to action
             logger.info(f"{next_state},reward")

@@ -21,7 +21,7 @@ class MultipathState:
     order:Tuple[int,int,int]
     time:datetime.datetime=field(default_factory=datetime.datetime.now)
 
-#给外部返回的总的state
+#包含网络状态和多路径调度状态
 class AllState(NamedTuple):
     out_of_order:float
     bandwidth:float

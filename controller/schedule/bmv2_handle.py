@@ -67,7 +67,7 @@ class SimpleSwitchHandle:
     
     def _make_lifespan(self,ip:str,port:int,user:str,password:str,bmv2_port:int) -> typing.Generator[None, None, None]:
         connection = fabric.Connection(
-            host = host,
+            host = ip,
             port = port,
             user = user,
             connect_kwargs=dict(password=password)
