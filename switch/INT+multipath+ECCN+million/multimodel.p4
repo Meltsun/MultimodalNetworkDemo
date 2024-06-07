@@ -171,7 +171,7 @@ header my_wnd_t{
 }
 
 header options_t{
-	bit<96>		nop_nop_timeStamps;
+	varbit<320>	nop_nop_timeStamps;
 }
 //--------------------------
 struct metadata {
@@ -283,8 +283,8 @@ parser c_parser(packet_in packet,
     }
 
     state parse_options {
-        packet.extract(hdr.options);
-       transition accept;
+	packet.extract(hdr.options,(bit<32>)(((bit<16>)hdr.tcp.data_offset - 6) * 32));
+	transition accept;
     }
     state parse_udp {
        packet.extract(hdr.udp);
@@ -343,6 +343,7 @@ control c_ingress(inout headers hdr,
         hdr.ethernet.src_mac = src_mac;
         hdr.ethernet.dst_mac = dst_mac;
         standard_metadata.egress_spec = port;
+	hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
     }
     table ipv4_multipath_lpm {
         key = {
@@ -359,6 +360,7 @@ control c_ingress(inout headers hdr,
         hdr.ethernet.src_mac = src_mac;
         hdr.ethernet.dst_mac = dst_mac;
         standard_metadata.egress_spec = port;
+	hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
     }
     table ipv4_singlepath_lpm {
         key = {
@@ -743,7 +745,7 @@ control c_ingress(inout headers hdr,
                 bit<48> time_difference = cur_time - modify_time;   // 当前时间与上次修改时间的时间差
                 bit<48> time_difference2 = cur_time - congestion_time;   // 当前时间与上次拥塞时间的时间差
                 // 拥塞控制时间以内、超出数据包传输时间、是ACK包、不是入网第一跳才修改
-                if(time_difference > 1000000 && meta.TCP_length <= 32 && hdr.ipv4.ttl <= 62){  //time_difference > time_dif time_dif_reg.read(time_dif,(bit<32>)meta.hash_value)
+                if(time_difference > 1000000 && meta.TCP_length <= 36 && hdr.ipv4.ttl <= 62){  //time_difference > time_dif time_dif_reg.read(time_dif,(bit<32>)meta.hash_value)
                     modify_time_reg.write((bit<32>)meta.hash_value, cur_time);
                     log_msg("meta.TCP_length : {}",{meta.TCP_length});
                     log_msg("hdr.ipv4.ttl : {}",{hdr.ipv4.ttl});
@@ -788,7 +790,6 @@ control c_ingress(inout headers hdr,
                         hdr.tcp.data_offset = hdr.tcp.data_offset + 1; // tcp的offset字段就是tcp包的首部总长度	（它的单位是4个字节）
                         hdr.ipv4.total_len = hdr.ipv4.total_len + 4; // IP首部记录的报文总长度字段			
                         meta.TCP_length = meta.TCP_length + 4;	// 重新计算TCP长度
-                        hdr.options.setValid(); 
                     }
                 }
             }
@@ -835,7 +836,7 @@ control c_ingress(inout headers hdr,
                 bit<48> time_difference = cur_time - modify_time;   // 当前时间与上次修改时间的时间差
                 bit<48> time_difference2 = cur_time - congestion_time;   // 当前时间与上次拥塞时间的时间差
                 // 拥塞控制时间以内、超出数据包传输时间、是ACK包、不是入网第一跳才修改
-                if(time_difference > 1000000 && meta.TCP_length <= 32 && hdr.ipv4.ttl <= 62){  //time_difference > time_dif time_dif_reg.read(time_dif,(bit<32>)meta.hash_value)
+                if(time_difference > 1000000 && meta.TCP_length <= 36 && hdr.ipv4.ttl <= 62){  //time_difference > time_dif time_dif_reg.read(time_dif,(bit<32>)meta.hash_value)
                     modify_time_reg.write((bit<32>)meta.hash_value, cur_time);
                     log_msg("meta.TCP_length : {}",{meta.TCP_length});
                     log_msg("hdr.ipv4.ttl : {}",{hdr.ipv4.ttl});
@@ -880,7 +881,6 @@ control c_ingress(inout headers hdr,
                         hdr.tcp.data_offset = hdr.tcp.data_offset + 1; // tcp的offset字段就是tcp包的首部总长度	（它的单位是4个字节）
                         hdr.ipv4.total_len = hdr.ipv4.total_len + 4; // IP首部记录的报文总长度字段			
                         meta.TCP_length = meta.TCP_length + 4;	// 重新计算TCP长度
-                        hdr.options.setValid(); 
                     }
                 }
             }
@@ -971,6 +971,9 @@ control c_compute_checksum(inout headers hdr,
                 hdr.my_wnd.type,
                 hdr.my_wnd.length,
                 hdr.my_wnd.value,
+		hdr.test_wnd.type,
+                hdr.test_wnd.length,
+                hdr.test_wnd.value,
                 hdr.options.nop_nop_timeStamps
                 },
                 hdr.tcp.checksum,
