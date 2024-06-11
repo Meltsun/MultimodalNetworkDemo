@@ -6,3 +6,4 @@ controller/database.db
 **/*.log
 **/*.~vsdx
 **/*config.toml
+controller/schedule/test.py

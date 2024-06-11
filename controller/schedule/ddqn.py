@@ -7,8 +7,8 @@ import torch.nn.functional as F
 import random
 import typing_extensions as typing
 
-from .environment import Environment,actions,AllState
-from .utils import logger
+from schedule.environment import Environment,actions,AllState
+from schedule.utils import logger
 
 class ReplayBuffer:
     def __init__(self, capacity):

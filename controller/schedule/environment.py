@@ -4,14 +4,11 @@ from io import BufferedReader
 from typing_extensions import Iterable,Callable,TypeVar,Union,Sequence,NamedTuple,cast,Tuple,Dict,TypedDict
 from itertools import permutations,product
 
-from iperf_handle import NetworkState,IperfHandle
-from utils import config as all_config,logger
-from p4_command_controller import SimpleSwitchHandle
-
-
+from schedule.iperf_handle import NetworkState,IperfHandle
+from schedule.utils import config as all_config,logger
+from schedule.p4_command_controller import SimpleSwitchHandle
 
 _config= all_config['multipath']['switch']
-
 
 @dataclass
 class MultipathState:

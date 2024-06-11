@@ -4,7 +4,7 @@ from abc import ABC
 from ipaddress import IPv4Address,IPv4Network
 from functools import partial
 
-from p4_command_controller.mac_address import MacAddress
+from .mac_address import MacAddress
 
 table_entry_params:typing.TypeAlias = typing.Mapping[str,typing.Union[IPv4Address,IPv4Network,MacAddress,int]]
 

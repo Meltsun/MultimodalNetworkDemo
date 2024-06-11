@@ -7,7 +7,7 @@ import typing_extensions as typing
 import invoke
 import logging
 
-from p4_command_controller.p4_switch import P4Switch,table_entry_params
+from .p4_switch import P4Switch,table_entry_params
 
 class _CommandIO(typing.TextIO):
     """
@@ -109,7 +109,7 @@ class SimpleSwitchHandle(P4Switch):
         return self.send_cmd(f"register_reset {name}")
 
     @typing.override
-    def set_register(self, name: str, *, index: int | None = None, value: int):
+    def set_register(self, name: str, *, index: typing.Optional[int] = None, value: int):
         if index is None:
             return self.send_cmd(f"register_write {name} {value}")
         else:
