@@ -5,15 +5,13 @@ from typing_extensions import Iterable,Callable,TypeVar,Union,Sequence,NamedTupl
 from itertools import permutations,product
 
 from iperf_handle import NetworkState,IperfHandle
-from bmv2_handle import SimpleSwitchHandle,RegisterListHandle
 from utils import config as all_config,logger
+from p4_command_controller import SimpleSwitchHandle
+
+
 
 _config= all_config['multipath']['switch']
 
-class Registers(TypedDict):
-    count:RegisterListHandle
-    initial:RegisterListHandle
-    order:RegisterListHandle
 
 @dataclass
 class MultipathState:
@@ -76,7 +74,7 @@ class Environment:
     stdout:BufferedReader
     iperf_handle:IperfHandle
     max_total_bw:float
-    mp_state:MultipathState#不要直接写这个值，总是使用set_multipath_state，避免造成交换机行为和这个值不一致。
+    multipath_state:MultipathState#不要直接写这个值，总是使用set_multipath_state，避免造成交换机行为和这个值不一致。
 
     def __init__(self, max_total_bw:float) -> None:
         self.iperf_handle = IperfHandle(['iperf','-s','-i','1','-p','5000','-u','-e'])
@@ -84,7 +82,7 @@ class Environment:
 
         logger.info("正在连接bmv2")
         logger.info(str(_config))
-        self.switch = SimpleSwitchHandle(
+        self.switch_handle = SimpleSwitchHandle(
                 ssh_ip = _config['ssh']['ip'],
                 ssh_port = _config['ssh']['port'],
                 user = _config['ssh']['user'],
@@ -93,13 +91,6 @@ class Environment:
                 logger = logger
             )
         logger.info("已连接bmv2")
-
-        register_indexes=_config['bmv2']['register_indexes']
-        self.registers=Registers(
-            initial = RegisterListHandle(self.switch,'register_initial',register_indexes),
-            count = RegisterListHandle(self.switch,'register_count',register_indexes),
-            order = RegisterListHandle(self.switch,'register_order',register_indexes)
-        )
     
     def reset(self,wait_clients=True) -> AllState:
         if wait_clients:
@@ -108,21 +99,22 @@ class Environment:
             (5,5,5),
             (1,2,3),
         ))
-        state = AllState.from_net_and_mp_state(self.iperf_handle.get_network_states(),self.mp_state)
+        state = AllState.from_net_and_mp_state(self.iperf_handle.get_network_states(),self.multipath_state)
         self._reseted=True
         return state
     
     def set_multipath_state(self,mp_state:MultipathState)->None:
-        self.mp_state = mp_state
-        registers = self.registers
         register_indexes=_config['bmv2']['register_indexes']
+        self.multipath_state = mp_state
+    
         for i in ('count','initial','order'):
-            registers[i].reset()
-        for i,v in zip(register_indexes,self.mp_state.num):
-            registers['count'][i] = v
-            registers['initial'][i] = v
-        for i,v in zip(register_indexes,self.mp_state.order):
-            registers['order'][i] = v
+            self.switch_handle.reset_register(i)
+        for i,v in zip(register_indexes,self.multipath_state.num):
+            for name in ('count','initial'):
+                self.switch_handle.set_register(name,index=i,value=v)
+        for i,v in zip(register_indexes,self.multipath_state.order):
+            self.switch_handle.set_register('order',index=i,value=v)
+
 
     def step(self,action_index:int):
         if not getattr(self,'_reseted',False):
@@ -131,7 +123,7 @@ class Environment:
         action=actions[action_index]
         self.set_multipath_state(
             MultipathState(
-                num=cast(Tuple[int,int,int],tuple(i+j for i,j in zip(self.mp_state.num,action[:3]))),
+                num=cast(Tuple[int,int,int],tuple(i+j for i,j in zip(self.multipath_state.num,action[:3]))),
                 order=action[3:]
             )
         )
@@ -141,7 +133,7 @@ class Environment:
         reward = 0.3 * get_avg_bandwidth(net_states)/self.max_total_bw - 0.7 * get_percentage_out_of_order(net_states)
         reward *=100
 
-        return AllState.from_net_and_mp_state(net_states,self.mp_state),reward
+        return AllState.from_net_and_mp_state(net_states,self.multipath_state),reward
     
     def close(self) -> None:
         self.iperf_handle.close()
@@ -154,6 +146,6 @@ if __name__ == "__main__":
     try:
         while True:
             env.step(int(input()))
-            print(env.mp_state)
+            print(env.multipath_state)
     except KeyboardInterrupt:
         env.close()
