@@ -4,6 +4,11 @@ from scapy.all import *
 import binascii
 import math
 import netifaces
+import time
+import threading
+import requests
+from datetime import datetime
+import json
 
 def parser_ethernet(ethernet_header):
     dst_mac = ethernet_header[0:12]
@@ -25,9 +30,9 @@ def parser_probe(probe_header):
     data_cnt = probe_header[2:4]
     data_cnt = int(data_cnt,16)
     if show_all == 1:
-        #print("****************************************")
-        #print("***           PROBE Header           ***")
-        #print("****************************************")
+        print("****************************************")
+        print("***           PROBE Header           ***")
+        print("****************************************")
         print("*** hop count * %d ***" %(hop_cnt))
         print("*** datacount * %d ***" %(data_cnt))
     return hop_cnt, data_cnt
@@ -36,13 +41,14 @@ def parser_probe_fwd(probe_fwd_header):
     swid = probe_fwd_header
     swid = int(swid,16)
     if show_all == 1:
-        #print("****************************************")
-        #print("***       PROBE FWD Header           ***")
-        #print("****************************************")
+        print("****************************************")
+        print("***       PROBE FWD Header           ***")
+        print("****************************************")
         print("*** swid * %d ***" %(swid))
     return 0
 
 def parser_probe_data(probe_data_header):
+    global data
     # print(probe_data_header)
     swid = probe_data_header[0:2]
     port_ingress = probe_data_header[2:4]
@@ -82,10 +88,11 @@ def parser_probe_data(probe_data_header):
     data_['current_time_egress'] = current_time_egress
     data_['qdepth'] = qdepth
     data.append(data_)
+    #print(f"Added new data: {data_}")
     if show_all == 1:
-        #print("****************************************")
-        #print("***       PROBE DATA Header          ***")
-        #print("****************************************")
+        print("****************************************")
+        print("***       PROBE DATA Header          ***")
+        print("****************************************")
         print("*** swid * %d ***" %(swid))
         print("*** port_ingress * %d ***" %(port_ingress))
         print("*** port_egress * %d ***" %(port_egress))
@@ -100,6 +107,8 @@ def parser_probe_data(probe_data_header):
         print("*** qdepth * %d ***" %(qdepth))
 
 def parser_packet(aaa):
+    global data    #使用全局变量
+    data.clear()   #清空列表
     # print("whole: %s" %(aaa))
     ethernet_header = aaa[0:28]
     eth_type = parser_ethernet(ethernet_header)
@@ -115,26 +124,26 @@ def parser_packet(aaa):
             probe_data_header = aaa[start:start+94]
             parser_probe_data(probe_data_header)
             start = start + 94
+        #print(f"Updated data list: {data}")   #打印更新数据
         for i in range(data_cnt - 1):
-            data1 = data[i+1]  #上一个
-            data2 = data[i]    #当前
-            node1 = data1['swid']  #上一个
-            node2 = data2['swid']  #当前
-            time1_bw = data2['current_time_egress']  #当前INT包出口处时间
-            time2_bw = data2['last_time_egress']     #上一个INT包出口处时间
+            data1 = data[i+1]  #上一个交换机
+            data2 = data[i]    #当前交换机
+            node1 = data1['swid']  #上一个交换机
+            node2 = data2['swid']  #当前交换机
+            time1_bw = data2['current_time_egress']  #当前INT包在上一跳交换机出口处的当前时间
+            time2_bw = data2['last_time_egress']     #当前交换机上一个INT包出口处时间
             byte_bw = data2['byte_egress']           #出口处字节数
-            time1_dalay = data2['last_time_egress']   #上一个INT包在出口处的当前时间
-            print(time1_dalay)
-            time2_dalay = data2['current_time_egress']  #当前INT包在出口处的当前时间
-            print(time2_dalay)
-            drop1 = data2['count_ingress']  #上一个INT包出口处包个数
-            drop2 = data1['count_egress']  #当前INT包进口处包个数
+            time1_dalay = data1['current_time_egress']   #当前INT包在上一跳交换机出口处的当前时间
+            time2_dalay = data2['current_time_ingress']  #当前INT包在这一跳进口处的当前时间
+            drop1 = data1['count_egress']  #上一跳交换机出口处包个数
+            drop2 = data2['count_ingress']  #当前交换机进口处包个数
             print(drop1)
             print(drop2)    
             utilization = 0 if time1_bw == time2_bw else  8.0 * byte_bw / (time1_bw - time2_bw)
-            droppkt = drop2 - drop1
+            droppkt = drop1 - drop2
             delay = time2_dalay -  time1_dalay
             print("node1:{} node2:{} delay:{}us bw:{} Mbps droppkt:{} \n".format(node1, node2, delay, utilization, droppkt))
+
     
 def receive_probe_pkt(pkt):
     sys.stdout.flush()

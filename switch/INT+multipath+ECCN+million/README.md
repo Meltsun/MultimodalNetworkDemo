@@ -43,3 +43,9 @@
         关闭eccn功能
     initial.py 中 eccn 置 1
         开启eccn功能
+
+6、INT测试
+
+六个终端除去170和180，均进行收发包的操作。
+收包：sudo python3 int_receive_new.py   （new文件是带有数据库操作的，如果不想上传数据仅做测试可以运行int_receive.py文件，另外注意，164机器的网口和其他几个终端不同，有自己对应的收包文件，文件夹里有）
+发包：sudo python3 int_send_XXX.py         (XXX为对应机器编号）

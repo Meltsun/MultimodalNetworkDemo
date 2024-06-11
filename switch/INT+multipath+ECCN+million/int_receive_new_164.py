@@ -10,6 +10,25 @@ import requests
 from datetime import datetime
 import json
 
+url_submit_data = 'http://192.168.199.180:8000/int/add'
+
+# 使用探测值提交数据
+def submit_data(node1, node2, delay, utilization, droppkt):
+    create_datetime = datetime.now().isoformat()
+    payload = json.dumps({  
+        'node_id_1': node1,
+        'node_id_2': node2,
+        'create_time': create_datetime,
+        'delay': delay,
+        'rate': utilization,
+        'lost': droppkt
+    })
+    response = requests.post(url_submit_data, data=payload)
+    if response.status_code == 200:
+        print('Data submitted successfully')
+    else:
+        print('Error submitting data:', response.text)
+
 def parser_ethernet(ethernet_header):
     dst_mac = ethernet_header[0:12]
     src_mac = ethernet_header[12:24]
@@ -140,10 +159,10 @@ def parser_packet(aaa):
             print(drop1)
             print(drop2)    
             utilization = 0 if time1_bw == time2_bw else  8.0 * byte_bw / (time1_bw - time2_bw)
-            droppkt = drop1 - drop2
+            droppkt = drop2 - drop1
             delay = time2_dalay -  time1_dalay
             print("node1:{} node2:{} delay:{}us bw:{} Mbps droppkt:{} \n".format(node1, node2, delay, utilization, droppkt))
-
+            submit_data(node1, node2, delay, utilization, droppkt)
     
 def receive_probe_pkt(pkt):
     sys.stdout.flush()
