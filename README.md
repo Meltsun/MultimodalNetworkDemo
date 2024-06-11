@@ -9,9 +9,14 @@
 
 ## 模块说明
 ### 多路径调度
+#### 配置
 1. 按照example编写config.toml，配置账号密码等
-2. 使用一下代码启动
+3. 安装pytorch
+4. 安卓iperf
+2. `pip install toml fabric typing_extensions pydantic_extra_types netaddr numpy`
+#### 启动
 ```bash
-cd controller
-python -m schedule
+cd ./controller/schedule
+#启动虚拟环境
+python main.py
 ```

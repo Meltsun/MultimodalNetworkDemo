@@ -6,6 +6,7 @@ import queue
 import typing_extensions as typing
 import invoke
 import logging
+#pip install fabric 
 
 from .p4_switch import P4Switch,table_entry_params
 

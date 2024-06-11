@@ -6,7 +6,7 @@ import toml
 
 __all__=['logger','config']
 
-root = Path(__file__).parent
+root = Path(__file__).parent.parent
 CONFIG_PATH = root/"config.toml"
 LOG_FILE_PATH = root/"logs"/datetime.now().strftime("%Y%m%d_%H-%M-%S.log")
 
