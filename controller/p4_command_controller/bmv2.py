@@ -6,9 +6,8 @@ import queue
 import typing_extensions as typing
 import invoke
 import logging
-#pip install fabric 
 
-from .p4_switch import P4Switch,table_entry_params
+from p4_command_controller.p4_switch import P4Switch,table_entry_params
 
 class _CommandIO(typing.TextIO):
     """
@@ -41,11 +40,24 @@ class _CommandIO(typing.TextIO):
 @typing.final
 class SimpleSwitchHandle(P4Switch):
     """
-    用于通过ssh向远程的bmv2 simple switch发送命令。\n
-    init会阻塞直到连接完成，也可以通过设置最后一个参数来在稍后手动连接\n
-    请使用close关闭cli和ssh连接
+    用于向远程的bmv2 simple switch发送命令。
+    基于ssh而不是p4runtime，性能更差但更灵活。
     """
-    def __init__(self,ssh_ip:str,ssh_port:int,user:str,password:str,bmv2_thrift_port:int,logger:typing.Optional[logging.Logger]=None,connect_immediately:bool=True) -> None:
+    
+    def __init__(self,*,ssh_ip:str,ssh_port:int,user:str,password:str,bmv2_thrift_port:int=9091,logger:typing.Optional[logging.Logger]=None,connect_immediately:bool=True) -> None:
+        """
+        创建实例时会阻塞直到建立连接。
+        请使用close关闭连接。
+
+        :param ssh_ip: bmv2服务器的ip地址，点分十进制
+        :param ssh_port: bmv2服务器的ssh端口号
+        :param user: ssh登录使用的用户名
+        :param password: ssh登录使用的密码
+        :param bmv2_thrift_port: bmv2 cli的端口,默认为9091
+        :param logger: 使用的logger，如果不传入则会创建一个默认的
+        :param connect_immediately: 默认立即连接，可以设置为false以在之后手动连接
+        """
+        
         self.logger = logger if isinstance(logger,logging.Logger) else logging.getLogger("Simple Switch Cli")
         self.command_in=_CommandIO()
         self.stdout=io.StringIO()
@@ -60,7 +72,6 @@ class SimpleSwitchHandle(P4Switch):
         if self._state == '未连接':
             next(self._lifespan)
     
-
     def close(self) -> None:
         """
         关闭cli，断开ssh连接。

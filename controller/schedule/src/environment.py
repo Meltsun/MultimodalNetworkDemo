@@ -6,7 +6,7 @@ from itertools import permutations,product
 
 from src.iperf_handle import NetworkState,IperfHandle
 from src.utils import config as all_config,logger
-from src.p4_command_controller import SimpleSwitchHandle
+from p4_command_controller import SimpleSwitchHandle
 
 _config= all_config['multipath']['switch']
 
