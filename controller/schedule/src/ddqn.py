@@ -142,6 +142,9 @@ class MultiPathTask:
         self.task_stop_event.set()
         
     def close(self):
+        """
+        程序结束时请调用，清理ssh连接
+        """
         self.env.close()
     
     def __call__(self):
@@ -149,7 +152,7 @@ class MultiPathTask:
     
     def run(self):
         """
-        
+        开启多路径调度
         """
         self.task_stop_event.clear()
         self.isRunning=True
