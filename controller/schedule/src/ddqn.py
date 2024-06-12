@@ -6,6 +6,7 @@ import numpy as np
 import torch.nn.functional as F
 import random
 import typing_extensions as typing
+from threading import Event
 
 from src.environment import Environment,actions,AllState
 from src.utils import logger
@@ -98,69 +99,93 @@ class DQN:
         self.count += 1
         return dqn_loss
 
-def main():
-    # define the hardware deployment of torch, on cpu or gpu(cuda)
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    
-    # set the size of buffer, and initial
-    buffer_size = 10000
-    replay_buffer = ReplayBuffer(buffer_size)
-    
-    # set the size of NN module
-    state_dim = 8
-    hidden_dim = 128
-    action_dim = 42
-    
-    # other parameters of DQN module
-    lr = 2e-3 # learning rate
-    gamma = 0.98 # attenuation factor
-    epsilon = 0.01 # greedy coefficient, 10%->random choose, 90%->choose the max_targetQ
-    target_update = 10 # update freqency of target Q. After 10 times of Q table update, copy Q table to target Q
-    # q_target = reward + gamma * max_targetQ
-    # q' = q + lr * (q_target - q)
-    
-    # build DQN module
-    agent = DQN(state_dim, hidden_dim, action_dim, lr, gamma, epsilon, target_update, device)
-    
-    # operation parameters
-    num_episodes = 5 # the total learning times
-    minimal_size = 10 # the learning interval. Once store 10 data, begin a learning(update q)
-    batch_size = 9 # the amount of sample in buffer
-    bw = 8.0
-    bw1 = 2.7
-    bw2 = 4.5
-    bw3 = 6.3
-    
-    env = Environment(bw) # initial environment
+# define the hardware deployment of torch, on cpu or gpu(cuda)
+device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
-    # start operation. In each episode, the learning need to continue until done=1(ood rate is lower than demand)
-    state = env.reset() # initial state. random choose a stored state
-    for i_episode in range(num_episodes):
-        #done = False # initial done
-        logger.debug(f"round {i_episode}")
+# set the size of buffer
+buffer_size = 10000
 
-        while True: # start learning
-            action = agent.take_action(state, bw, bw1, bw2, bw3) # get the action index from NN module
-            next_state, reward = env.step(action) # calculate parameter to action
-            logger.info(f"{next_state},reward")
-            replay_buffer.add(state, action, reward, next_state) # store information into buffer
-            state = next_state # update state
-            # once the size of buffer exceed minimal_size, start learning
-            if replay_buffer.size() > (i_episode+1) * minimal_size:
-                b_s, b_a, b_r, b_ns = replay_buffer.sample(batch_size) # get sample data
-                transition_dict = {
-                    'states': b_s,
-                    'actions': b_a,
-                    'next_states': b_ns,
-                    'rewards': b_r,
-                    #'dones': b_d
-                } # build sample data dictionary
-                dqn_loss = agent.update(transition_dict) # update NN network
-                logger.debug(f"{dqn_loss=}")
+state_dim = 8
+hidden_dim = 128
+action_dim = 42
+# other parameters of DQN module
+lr = 2e-3 # learning rate
+gamma = 0.98 # attenuation factor
+epsilon = 0.01 # greedy coefficient, 10%->random choose, 90%->choose the max_targetQ
+target_update = 10 # update freqency of target Q. After 10 times of Q table update, copy Q table to target Q
+# q_target = reward + gamma * max_targetQ
+# q' = q + lr * (q_target - q)
+
+# operation parameters
+num_episodes = 5 # the total learning times
+minimal_size = 10 # the learning interval. Once store 10 data, begin a learning(update q)
+batch_size = 9 # the amount of sample in buffer
+bw = 8.0
+bw1 = 2.7
+bw2 = 4.5
+bw3 = 6.3
+
+
+class MultiPathTask:
+    def __init__(self) -> None:
+        """
+        创建实例时会阻塞，直到ssh连接完成。
+        请确认iperf服务器已经打开，否则会卡死。
+        """
+        self.env = Environment(bw) # initial environment
+        # build DQN module
+        self.agent = DQN(state_dim, hidden_dim, action_dim, lr, gamma, epsilon, target_update, device)
+        self.task_stop_event = Event()
+        self.isRunning=False
+    
+    def pause(self):
+        self.task_stop_event.set()
+        
+    def close(self):
+        self.env.close()
+    
+    def __call__(self):
+        self.run()
+    
+    def run(self):
+        """
+        
+        """
+        self.task_stop_event.clear()
+        self.isRunning=True
+        replay_buffer = ReplayBuffer(buffer_size)
+        
+        env=self.env
+        # start operation. In each episode, the learning need to continue until done=1(ood rate is lower than demand)
+        state = env.reset(False) # initial state. random choose a stored state
+        for i_episode in range(num_episodes):
+            #done = False # initial done
+            logger.debug(f"round {i_episode}")
+
+            while not self.task_stop_event.is_set(): # start learning
+                action = self.agent.take_action(state, bw, bw1, bw2, bw3) # get the action index from NN module
+                next_state, reward = env.step(action) # calculate parameter to action
+                logger.info(f"{next_state},reward")
+                replay_buffer.add(state, action, reward, next_state) # store information into buffer
+                state = next_state # update state
+                # once the size of buffer exceed minimal_size, start learning
+                if replay_buffer.size() > (i_episode+1) * minimal_size:
+                    b_s, b_a, b_r, b_ns = replay_buffer.sample(batch_size) # get sample data
+                    transition_dict = {
+                        'states': b_s,
+                        'actions': b_a,
+                        'next_states': b_ns,
+                        'rewards': b_r,
+                        #'dones': b_d
+                    } # build sample data dictionary
+                    dqn_loss = self.agent.update(transition_dict) # update NN network
+                    logger.debug(f"{dqn_loss=}")
+                    break
+
+            if self.task_stop_event.is_set():
+                self.env.pause()
                 break
-            #break
-        #break
+        self.isRunning=False
         
 if __name__ == '__main__':
-    main()
-    
+    ...

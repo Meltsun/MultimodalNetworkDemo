@@ -74,7 +74,6 @@ class Environment:
     multipath_state:MultipathState#不要直接写这个值，总是使用set_multipath_state，避免造成交换机行为和这个值不一致。
 
     def __init__(self, max_total_bw:float) -> None:
-        self.iperf_handle = IperfHandle(['iperf','-s','-i','1','-p','5000','-u','-e'])
         self.max_total_bw=max_total_bw
 
         logger.info("正在连接bmv2")
@@ -89,8 +88,11 @@ class Environment:
             )
         logger.info("已连接bmv2")
     
-    def reset(self,wait_clients=True) -> AllState:
-        if wait_clients:
+    def reset(self,wait_iperf_clients=True) -> AllState:
+        self.iperf_handle = IperfHandle(['iperf','-s','-i','1','-p','5000','-u','-e'])
+        self.switch_handle.set_register("transmition_model",index=1,value=1)
+        
+        if wait_iperf_clients:
             input("请启动或重启iperf客户端，并按下回车以继续程序")
         self.set_multipath_state(MultipathState(
             (5,5,5),
@@ -133,8 +135,20 @@ class Environment:
         return AllState.from_net_and_mp_state(net_states,self.multipath_state),reward
     
     def close(self) -> None:
+        """
+        停止iperf和switch。停止后这个实例不能再使用。
+        """
+        self.pause()
+        self.switch_handle.close()
+    
+    def pause(self):
+        """
+        只停止iperf。
+        稍后可以用reset恢复。
+        """
+        self.switch_handle.set_register("transmition_model",index=1,value=0)
         self.iperf_handle.close()
-
+        self._reseted=False
 
 
 if __name__ == "__main__":

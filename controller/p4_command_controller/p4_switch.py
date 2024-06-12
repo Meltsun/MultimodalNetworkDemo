@@ -45,4 +45,19 @@ class P4Switch(ABC):
     
     @abc.abstractmethod
     def update_table_entry(self,table:str,match_params:table_entry_params,action:str,action_params:table_entry_params={}):
+        """
+        下发流表。
+
+        :param table: 表名
+        :param match_params: 匹配参数
+        :type match_params: table_entry_params
+        :param action: 动作名
+        :param action_params: 动作参数
+        
+        两个参数的类型均为dict，key为str，value为int。
+        作为地址时，value也可以传入以下类型，它们会被处理并转化成int：
+            - ipaddress.IPv4Address
+            - ipaddress.IPv4Network
+            - p4_command_controller.MacAddress
+        """
         ...

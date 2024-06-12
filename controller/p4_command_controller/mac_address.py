@@ -5,7 +5,7 @@ import typing
 
 @typing.final
 class MacAddress(pydantic_MacAddress):
-    def __init__(self,value) -> None:
+    def __init__(self,value:str) -> None:
         TypeAdapter(pydantic_MacAddress).validate_python(value)
         self._mac_obj = EUI(value)
 
