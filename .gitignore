@@ -8,3 +8,4 @@ controller/database.db
 **/*config.toml
 **/.venv
 **/test.py
+controller/schedule/api.py

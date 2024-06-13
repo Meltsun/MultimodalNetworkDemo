@@ -24,8 +24,8 @@ bash ./controller/schedule/retry_iperf.sh <server_ip> <port>
 测试时直接运行模块，运行一次调度任务
 ```bash
 cd ./controller
-#启动虚拟环境
-python -m schedule main.py
+#(启动虚拟环境)
+python -m schedule
 ```
 
 运行整个系统时，请`from schedule import MultiPathTask`，请在系统启动时创建一个实例，按需启动。

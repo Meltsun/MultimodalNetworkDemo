@@ -1,9 +1,24 @@
+[[multipath.switch]]
+name="?"
 [multipath.switch.ssh]
 ip="?"
 port="?"
-user='?'
+user="?"
 password="?"
 
 [multipath.switch.bmv2]
 port="?"
-register_indexes=[2,3,4]#三路对应的寄存器序号
+register_indexes=[2,3,4]
+
+
+[[multipath.switch]]
+name="?"
+[multipath.switch.ssh]
+ip="?"
+port="?"
+user="?"
+password="?"
+
+[multipath.switch.bmv2]
+port="?"
+register_indexes=[4,3,2]

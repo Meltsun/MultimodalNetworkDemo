@@ -8,8 +8,8 @@ import random
 import typing_extensions as typing
 from threading import Event
 
-from src.environment import Environment,actions,AllState
-from src.utils import logger
+from schedule.src.environment import Environment,actions,AllState
+from schedule.src.utils import logger
 
 class ReplayBuffer:
     def __init__(self, capacity):

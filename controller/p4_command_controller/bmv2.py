@@ -6,6 +6,7 @@ import queue
 import typing_extensions as typing
 import invoke
 import logging
+from ipaddress import IPv4Address
 
 from p4_command_controller.p4_switch import P4Switch,table_entry_params
 
@@ -37,14 +38,13 @@ class _CommandIO(typing.TextIO):
     def __getattr__(self, name: str):
         raise Exception(f"意外的方法调用，请实现这个方法:{name}")
     
-@typing.final
 class SimpleSwitchHandle(P4Switch):
     """
     用于向远程的bmv2 simple switch发送命令。
     基于ssh而不是p4runtime，性能更差但更灵活。
     """
     
-    def __init__(self,*,ssh_ip:str,ssh_port:int,user:str,password:str,bmv2_thrift_port:int=9091,logger:typing.Optional[logging.Logger]=None,connect_immediately:bool=True) -> None:
+    def __init__(self,*,ssh_ip:IPv4Address,ssh_port:int,user:str,password:str,bmv2_thrift_port:int=9091,logger:typing.Optional[logging.Logger]=None,connect_immediately:bool=True) -> None:
         """
         创建实例时会阻塞直到建立连接。
         请使用close关闭连接。
@@ -83,7 +83,7 @@ class SimpleSwitchHandle(P4Switch):
             pass
         self.logger.info(f"剩余目标交换机cli输出：\n{self.stdout.getvalue()}")
     
-    def _make_lifespan(self,ip:str,port:int,user:str,password:str,bmv2_port:int) -> typing.Generator[None, None, None]:
+    def _make_lifespan(self,ip:IPv4Address,port:int,user:str,password:str,bmv2_port:int) -> typing.Generator[None, None, None]:
         with fabric.Connection(
             host = ip,
             port = port,

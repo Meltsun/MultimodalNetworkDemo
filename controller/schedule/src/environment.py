@@ -4,11 +4,9 @@ from io import BufferedReader
 from typing_extensions import Iterable,Callable,TypeVar,Union,Sequence,NamedTuple,cast,Tuple,Dict,TypedDict
 from itertools import permutations,product
 
-from src.iperf_handle import NetworkState,IperfHandle
-from src.utils import config as all_config,logger
-from p4_command_controller import SimpleSwitchHandle
-
-_config= all_config['multipath']['switch']
+from schedule.src.iperf_handle import NetworkState,IperfHandle
+from schedule.src.utils import logger,switch_configs
+from schedule.src.multipath_switch_handle import MultiPathSwitchComposite
 
 @dataclass
 class MultipathState:
@@ -66,6 +64,7 @@ def get_avg_bandwidth(networkStates:Sequence[NetworkState]) -> float:
 
 def get_percentage_out_of_order(networkStates:Sequence[NetworkState])->float:
     return sum_skip_none(networkStates,lambda i:i.lost)/sum_skip_none(networkStates,lambda i:i.total)
+    
 
 class Environment:
     stdout:BufferedReader
@@ -75,45 +74,28 @@ class Environment:
 
     def __init__(self, max_total_bw:float) -> None:
         self.max_total_bw=max_total_bw
-
-        logger.info("正在连接bmv2")
-        logger.info(str(_config))
-        self.switch_handle = SimpleSwitchHandle(
-                ssh_ip = _config['ssh']['ip'],
-                ssh_port = _config['ssh']['port'],
-                user = _config['ssh']['user'],
-                password = _config['ssh']['password'],
-                bmv2_thrift_port = _config['bmv2']['port'],
-                logger = logger
-            )
-        logger.info("已连接bmv2")
+        self.switchs = MultiPathSwitchComposite()
     
     def reset(self,wait_iperf_clients=True) -> AllState:
         self.iperf_handle = IperfHandle(['iperf','-s','-i','1','-p','5000','-u','-e'])
-        self.switch_handle.set_register("transmition_model",index=1,value=1)
-        
+        self.switchs.enable_multipath()
         if wait_iperf_clients:
             input("请启动或重启iperf客户端，并按下回车以继续程序")
-        self.set_multipath_state(MultipathState(
-            (5,5,5),
-            (1,2,3),
-        ))
+        
+        self.set_multipath_state(
+                MultipathState(
+                (5,5,5),
+                (1,2,3),
+            )
+        )
+        
         state = AllState.from_net_and_mp_state(self.iperf_handle.get_network_states(),self.multipath_state)
         self._reseted=True
         return state
     
     def set_multipath_state(self,mp_state:MultipathState)->None:
-        register_indexes=_config['bmv2']['register_indexes']
+        self.switchs.set_multipath_state(mp_state.num,mp_state.order)
         self.multipath_state = mp_state
-    
-        for i in ('count','initial','order'):
-            self.switch_handle.reset_register(i)
-        for i,v in zip(register_indexes,self.multipath_state.num):
-            for name in ('count','initial'):
-                self.switch_handle.set_register(name,index=i,value=v)
-        for i,v in zip(register_indexes,self.multipath_state.order):
-            self.switch_handle.set_register('order',index=i,value=v)
-
 
     def step(self,action_index:int):
         if not getattr(self,'_reseted',False):
@@ -139,14 +121,14 @@ class Environment:
         停止iperf和switch。停止后这个实例不能再使用。
         """
         self.pause()
-        self.switch_handle.close()
+        self.switchs.close()
     
     def pause(self):
         """
         只停止iperf。
         稍后可以用reset恢复。
         """
-        self.switch_handle.set_register("transmition_model",index=1,value=0)
+        self.switchs.disable_multipath()
         self.iperf_handle.close()
         self._reseted=False
 

@@ -3,14 +3,32 @@ from datetime import datetime
 import os
 from pathlib import Path
 import toml
+from pydantic import BaseModel,Field
+from ipaddress import IPv4Address
+import typing_extensions as typing
 
-__all__=['logger','config']
+__all__=['logger','switch_configs']
 
 root = Path(__file__).parent.parent
-CONFIG_PATH = root/"config.toml"
-LOG_FILE_PATH = root/"logs"/datetime.now().strftime("%Y%m%d_%H-%M-%S.log")
 
-config = toml.load(CONFIG_PATH)
+class SSHConfig(BaseModel):
+    ip:IPv4Address
+    port:int
+    user:str
+    password:str
+class Bmv2Config(BaseModel):
+    port:int
+    register_indexes:typing.Tuple[int,int,int]=Field(description="路径123分别对应寄存器的哪些索引")
+class SwitchConfig(BaseModel):
+    ssh:SSHConfig
+    bmv2:Bmv2Config
+    name:str
+
+
+CONFIG_PATH = root/"config.toml"
+switch_configs = [SwitchConfig(**i) for i in toml.load(CONFIG_PATH)['multipath']['switch']]
+
+LOG_FILE_PATH = root/"logs"/datetime.now().strftime("%Y%m%d_%H-%M-%S.log")
 LOG_FILE_PATH.parent.mkdir(exist_ok=True)
 
 logger=logging.getLogger('schedule')

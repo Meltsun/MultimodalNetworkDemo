@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI,BackgroundTasks
 
-from src.ddqn import MultiPathTask
+from schedule.src.ddqn import MultiPathTask
 
 
 multiPathTask:MultiPathTask
