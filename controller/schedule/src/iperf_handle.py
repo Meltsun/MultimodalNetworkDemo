@@ -7,6 +7,7 @@ import re
 import datetime
 import time
 import sys
+import logging
 
 Mbps:TypeAlias = float
 NumOfPackets:TypeAlias = int
@@ -27,7 +28,12 @@ class IperfHandle:
     请使用close关闭cli和ssh连接或者直接作为上下文使用。
     """
     stdout:BufferedReader
-    def __init__(self,cmd:List[str]) -> None:
+    logger:logging.Logger
+    def __init__(self,cmd:List[str],logger=None) -> None:
+        if logger is None:
+            IperfHandle.logger=logging.getLogger('iperf_handle')
+        else:
+            IperfHandle.logger=logger
         self.process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         assert isinstance(self.process.stdout,BufferedReader)
         self.stdout = self.process.stdout
@@ -71,7 +77,7 @@ class IperfHandle:
             #total
             state.total=NumOfPackets(splited[11])
         else :
-            print(f"未知输出，未进行解析：{line}")
+            IperfHandle.logger.info(f"未知输出，未进行解析：{line}")
             return None
         return state
 
@@ -106,12 +112,3 @@ class IperfHandle:
         self.get_network_states(False)
         time.sleep(duration)
         return self.get_network_states()
-
-
-if __name__ == '__main__':
-    handle = IperfHandle(['iperf','-s','-i','1','-p','5000','-u','-e'])
-    while True:
-        input()
-        print("================================================")
-        for line in handle.stdout:
-            print(repr(str(line)))
