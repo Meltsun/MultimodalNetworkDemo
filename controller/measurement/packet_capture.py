@@ -24,9 +24,9 @@ password = 'bjtungirc'
 yes = 'yes'
 
 # 180视频服务器端口（目前，之后可能会更改）
-quic_port = 8080
+quic_port = 5050
 webrtc_port = 8081
-https_port = 8002
+https_port = 5051
 
 
 # pcap 文件路径
@@ -104,11 +104,20 @@ with ThreadPoolExecutor() as executor:
     ip_port = int(t3.result())
 
 
+if ip_port == quic_port:
+    protocols = 22
+elif ip_port == webrtc_port:
+    protocols = 23
+elif ip_port == https_port:
+    protocols = 24
+else:
+    protocols = 0
+
 # 对数据包进行处理
 # 服务端
-packets1 = extract_id_timestamp(server_path)
+packets1 = extract_id_timestamp(server_path, protocols)
 # 客户端
-packets2 = extract_id_timestamp(client_path)
+packets2 = extract_id_timestamp(client_path, protocols)
 
 tail_delay, congestion_rate = calculate_tail_delay_and_congestion_rate(packets1, packets2)
 resolution = extract_resolution(video_path)
@@ -123,14 +132,6 @@ print("卡顿率(%)：", congestion_rate)
 print("分辨率：", resolution)
 print("服务器端口号：", ip_port)
 
-if ip_port == quic_port:
-    protocols = 22
-elif ip_port == webrtc_port:
-    protocols = 23
-elif ip_port == https_port:
-    protocols = 24
-else:
-    protocols = 0
 
 information = {"tail_delay":tail_delay, "congestion_rate":congestion_rate, "resolution_height":resolution[0], "resolution_width":resolution[1], "protocol":str(protocols)}
 
@@ -144,7 +145,6 @@ url = 'http://219.242.112.215:8000/Videosituation/add'
 # 要发送的数据
 data = information
 
-"""
 # 发送 POST 请求
 response = requests.post(url, json=data)
 
@@ -153,7 +153,7 @@ if response.status_code == 200:
     print("数据成功发送到数据库接口！")
 else:
     print("数据发送失败。")
-"""
+
 
 
 
