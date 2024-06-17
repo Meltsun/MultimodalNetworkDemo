@@ -1,9 +1,11 @@
 文件在六个终端162、164、166、168、172、174的/mutilmodel/milliontcp文件夹下
 
+流程：
 1、首先在六个终端bash stopAllContainers.sh文件
 2、在六个终端上运行startserver.sh
 3、在六个终端上运行startclient.sh
 
+各文件说明：
 example：客户端（主体代码）和服务端的实现层
 utils：工具或全局文件（连接数和客户端与服务端端口等全局变量）
 ziface：接口
