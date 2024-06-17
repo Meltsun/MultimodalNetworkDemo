@@ -3,7 +3,7 @@ import cv2
 
 
 # 两个数据，时间戳，包id
-def extract_id_timestamp(file_path):
+def extract_id_timestamp(file_path, protocols):
     packets = {}
     with open(file_path, 'rb') as f:
         pcap = dpkt.pcap.Reader(f)
@@ -11,9 +11,16 @@ def extract_id_timestamp(file_path):
             eth = dpkt.ethernet.Ethernet(buf)
             if isinstance(eth.data, dpkt.ip.IP):
                 ip = eth.data
-                #if isinstance(ip.data, dpkt.udp.UDP) or isinstance(ip.data, dpkt.tcp.TCP):
-                if isinstance(ip.data, dpkt.udp.UDP):
-                    packets[ip.id] = timestamp
+                if protocols == 22 or protocols == 23:
+                    # 处理udp包
+                    if isinstance(ip.data, dpkt.udp.UDP):
+                        packets[ip.id] = timestamp
+                elif protocols == 24:
+                    # 处理TCP包
+                    if isinstance(ip.data, dpkt.tcp.TCP):
+                        packets[ip.id] = timestamp
+                else:
+                    print("端口号开启有问题")
     return packets
 
 
@@ -27,14 +34,21 @@ def calculate_tail_delay_and_congestion_rate(packets1, packets2):
             arrival_time1 = packets1[packet1_id]
             arrival_time2 = packets2[packet1_id]
             delay.append(abs(arrival_time2 - arrival_time1))
-            tail_delay = max(tail_delay, abs(arrival_time2 - arrival_time1))
+            # tail_delay = max(tail_delay, abs(arrival_time2 - arrival_time1))
+    delay.sort()
+    
+    # 计算最大1%的时延平均值
+    tail_percentage = 0.01
+    tail_count = max(1, int(len(delay) * tail_percentage))
+    tail_delays = delay[-tail_count:]
+    tail_delay = sum(tail_delays) / len(tail_delays)
+    
     if delay:
         average_value = sum(delay) / len(delay)
 
-    
     values_greater_than_average = []
     for num in delay:
-        if num > average_value * 1:
+        if num > average_value * 1.2:
             values_greater_than_average.append(num)
     
     
