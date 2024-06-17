@@ -1,0 +1,51 @@
+注意
+开启server时需要传入
+1 . -sdip=本server的数据网IP
+2 . -scip=本server的控制网IP
+3 . -sname=本server的名字，如h164s1，表示在164机器中的第一个server程序，当然，每个机器只开一个server程序
+开启client时需要传入
+1 . -cdip=本client的数据网IP
+2 . -ccip=本client的控制网IP
+3 . -cname=本client的名字，如h164c1，表示在164机器中的第一个client程序
+4 . -host=本client所在的终端的编号，如166，164
+5 . -conn=本client总的连接数量
+本实验拓扑包括6个终端机器，每个client程序都会与不包括自己在内的其他5个终端server程序进行TCP连接。因此对client
+程序不需要传入它需要连接的serverIP，serverIP都写在了 utils.GlobalObj.AllServerIps
+docker 相关命令
+宿主机接入数据网络的网卡需要开启混杂模式，docker 容器需要
+本实验使用的docker镜像为ubuntu，但docker官方默认的ubuntu镜像很多工具没有装，所以我们提前使用dockerfile构建了一个
+安装的有 ping ， route 等命令的镜像，称为 multimodal_ubt 。
+创建docker 的 两个macvlan 网络，控制网 ctrlNet和数据网 dataNet
+docker network create -d macvlan --subnet=192.168.199.0/24 --gateway=192.168.199.1 -o parent=[eno1] ctrlNet
+docker network create -d macvlan --subnet=10.174.174.0/24 --gateway=10.174.174.1 -o parent=[eno2] dataNet
+现在想运行一个docker 容器，该容器同时连接了这两个网络 但是现在每个终端都已经用dockerfile构建了一个可用镜像
+multimodal_ubt，一律用这个
+# 如果没有自定义的自定义的镜像，就用下面的命令开一个普通ubuntu容器，安装好相应工具后打包成镜像
+docker run -d --privileged --name=c1 --network=dataNet --ip=10.164.164.200 multimodal_ubt
+# 连接到控制网
+docker network connect --ip=192.168.199.200 ctrlNet c1
+# 添加路由信息
+docker exec c1 route add -net 10.0.0.0 netmask 255.0.0.0 gw 10.164.164.1
+此时我们查看容器内的路由
+# 首先进入该容器
+docker exec -it c1 bash
+# 然后使用route命令查看
+root@39541c145393:/# route -n
+Kernel IP routing table
+Destination Gateway Genmask Flags Metric Ref Use Iface
+0.0.0.0 192.168.199.1 0.0.0.0 UG 0 0 0 eth1
+10.164.164.0 0.0.0.0 255.255.255.0 U 0 0 0 eth0
+192.168.199.0 0.0.0.0 255.255.255.0 U 0 0 0 eth1
+可以看到，非常奇怪但是对我们来说是好事的情况，我们创建容器时，我们首先连接的是10开头的数据网，所以它此时路由表默
+认路由是去10网段的网关。但是呢，我们将容器连接到控制网后，查看路由表发现直接将我们的默认路由改成了去控制网的网
+关。可能是因为控制网才真的可以连接互联网吧。
+此时，该容器缺一个发送到数据网络的路由。使用命令 route add -net 10.0.0.0 netmask 255.0.0.0 gw 10.164.164.1 来添
+加
+此时我们的容器就既可以通过控制网来连接互联网，又与数据网中的机器连通了。
+注：
+docker 镜像在构建时忘记设置镜像的容器的时区了。导致程序打印的日志时间只能是UTC时间不能记录北京时间。暂时懒得管
+了
+server 代码中不能将心跳包间隔时间设计的
+常用命令
+# 查看某程序连接数
+curl 192.168.199.216:8992/queryAmountOfConns
