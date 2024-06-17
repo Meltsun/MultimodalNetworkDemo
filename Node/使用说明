@@ -1,0 +1,23 @@
+文件在六个终端162、164、166、168、172、174的/mutilmodel/milliontcp文件夹下
+
+1、首先在六个终端bash stopAllContainers.sh文件
+2、在六个终端上运行startserver.sh
+3、在六个终端上运行startclient.sh
+
+example：客户端（主体代码）和服务端的实现层
+utils：工具或全局文件（连接数和客户端与服务端端口等全局变量）
+ziface：接口
+znet：服务器功能的具体实现
+	- connection：单个连接的具体实现
+	- connmanager：连接管理器
+	- datapack：msg->byte数组，byte数组->msg
+	- heartbeat：心跳包
+	- message：应用层的所有数据格式
+	- msgHandler：收到消息对应的id号，进行相应的route处理
+	- request：消息和连接绑定
+	- router：描述相应的信息处理规则
+	- server：server程序的实现
+dockerfile：构建需要的镜像
+fileFrans：把需要用到的shell文件传递给所有交换机
+
+发文件流程：sever发，client收；sever收到client的文件请求消息后将消息中的文件名读取出来，将相应文件发送给对应的client
