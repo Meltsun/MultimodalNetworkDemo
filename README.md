@@ -19,14 +19,45 @@
 
 系统包括系统初始化模块、前端展示模块、后端数据库模块、INT探测模块、百万级链接模块、多路径调度模块，具体运行流程如下。
 ### 1. 系统启动初始化模块 by HXT、CCJ、WJF
-HXT、CCJ、WJF补充，说明运行代码位置、流程、运行所需环境，以及相关说明文档位置
+代码文件均在switch文件夹中的initial文件夹
+（1）、在初始化系统网卡命名之前，要检查6台交换机、8台终端网线物理连接，系统统一选用左侧四个端口和右侧第一个端口进行物理连接，对应网卡命名的bmv2-port1到bmv2-port5。
+在每个机器中运行XXX-ports.sh文件，进行网卡命名刷新。并运行ipv6_delete.sh，去除每个网口自配ipv6地址。
+
+（2）、交换机时间同步操作：
+①查看时钟频率（客户端和服务端都看，把客户端tick调成与服务端一致）
+sudo apt-get install adjtimex
+sudo adjtimex --print 
+
+②重新时间同步一遍
+服务端：
+service ntp restart
+客户端：
+sudo systemctl stop ntp
+sudo ntpdate 192.168.199.186
+sudo systemctl start ntp
+
+③查看客户端与服务端两时间偏移量（多次），
+sudo ntpdate -q 192.168.199.186 或 ntpq -p
+
+④过程3一直增长，值调小，过程3一直减小，值调大。重复3到4，使过程3的结果上下浮动为止
+sudo adjtimex --tick  XX 
+
+⑤2到4重新手动时间，同步再来一遍
+
+（3）、6台交换机编写bmv2运行shell文件，开启bmv2。
+./s-XXX-bmv2.sh
+
+（4）、6台交换机编写流表下发shell文件，下发流表。
+./s-XXX-table.sh
 
 ### 2. 后端数据库模块 by CCJ
 CCJ补充，说明运行代码位置、流程、运行所需环境，以及相关说明文档位置
 
 ### 3. INT探测模块 by HXT
-HXT补充，说明运行代码位置、流程、运行所需环境，以及相关说明文档位置
-
+INT相关文件均在switch文件中的INT文件夹中；
+六个终端（除去170和180）均进行收发包的操作：
+   收包：sudo python3 int_receive_new.py   （new文件是带有数据库操作的，如果不想上传数据仅做测试可以运行int_receive.py文件；另外注意，164机器的网口和其他几个终端不同，有自己对应的收包文件，文件夹里有对应名字的文件）
+   发包：sudo python3 int_send_XXX.py       (XXX为对应机器编号）
 ### 4. 百万级链接模块 by WJF
 WJF补充，说明运行代码位置、流程、运行所需环境，以及相关说明文档位置
 
