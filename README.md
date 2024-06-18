@@ -73,7 +73,7 @@ INT相关文件均在switch文件中的INT文件夹中  `./switch/INT`
 WJF补充，说明运行代码位置、流程、运行所需环境，以及相关说明文档位置
 
 ### 6. 拥塞控制模块 by ZX、CCJ
-说明文件目录在`./controller/congestion_control`,其功能主要为拥塞算法切换。
+说明文件目录在`./controller/congestion_control`,其功能主要为拥塞算法切换
 
 ### 7. 指标测量模块 by GZC
 GZC补充，说明运行代码位置、流程、运行所需环境，以及相关说明文档位置
