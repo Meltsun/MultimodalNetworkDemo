@@ -76,7 +76,7 @@ WJF补充，说明运行代码位置、流程、运行所需环境，以及相�
 说明文件目录在`./controller/congestion_control`,其功能主要为拥塞算法切换
 
 ### 7. 指标测量模块 by GZC
-GZC补充，说明运行代码位置、流程、运行所需环境，以及相关说明文档位置
+说明文件在`./controller/measurement/README.md`下，有启动脚本以及相关说明。
 
 ### 8. 流表下发模块 by WXY
 `./controller/p4_command_controller`
