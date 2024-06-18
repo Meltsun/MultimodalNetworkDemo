@@ -22,9 +22,11 @@ sudo modprobe -a tcp_bbr（即可完成下载编译，如要比较其他算法�
 我们的拥塞控制算法名为encc,在本项目中，我们在6台交换机中开启bmv2运行我们的multimodel.p4代码，同时我们在相应的主机进行了内核编译。
 ```python
 "内核编译请参考"：https://github.com/lkseagle/end-host-and-network-cooperation
-在该网站上，我们已经完成了ubuntu的内核编译，其中内核版本为linux-5.4.224，因为我们的代码是基于 Reno 原始代码修改。如果要运行我们的算法，需要将拥塞算法切换为reno。
+在该网站上，我们已经完成了ubuntu的内核编译，其中内核版本为linux-5.4.224，因为我们的代码是基于 Reno 原始代码修改。
+如果要运行我们的算法，需要将拥塞算法切换为reno。
 如果相应编译其他的内核版本，请自行编译。
-我们主要更改了tcp_cong.c文件中的tcp_reno_cong_avoid函数和tcp_input.c文件中的tcp_parse_options函数，以及tcp.h文件中的tcp_options_received（我们新增了一个可选项my_wnd）
+我们主要更改了tcp_cong.c文件中的tcp_reno_cong_avoid函数和tcp_input.c文件中的tcp_parse_options函数，
+以及tcp.h文件中的tcp_options_received（我们新增了一个可选项my_wnd）
 如果想在我们的代码基础上修改，请参考这3个文件。
 路径：/usr/src/linu-x.x.x/include/linux/tcp.h
     /usr/src/ linu-x.x.x/ net/ipv4/tcp_input.c
@@ -40,6 +42,8 @@ sudo modprobe -a tcp_bbr（即可完成下载编译，如要比较其他算法�
 register_write transmition_model 0 1（具体文件可参考`./switch/initial`中的文本文件）
 ```
 ```text
-如果transmition_model[0]=1且发送的包为tcp包，即可使用我们的encc算法。在该算法中，我们仅对拥塞控制时间以内、超出数据包传输时间的ACK包进行处理，且不处理入网第一跳的ACK包。
-在我们的算法中，我们根据当前时间与上次拥塞时间的时间差通过不同的逻辑来进行窗口中的更新，同时为tcp包增添一个头部（my_wnd），这与编译内核中的处理逻辑匹配，从而在终端窗口就可以通过我们的encc算法进行窗口值更新。
+如果transmition_model[0]=1且发送的包为tcp包，即可使用我们的encc算法。
+在该算法中，我们仅对拥塞控制时间以内、超出数据包传输时间的ACK包进行处理，且不处理入网第一跳的ACK包。
+在我们的算法中，我们根据当前时间与上次拥塞时间的时间差通过不同的逻辑来进行窗口中的更新，
+同时为tcp包增添一个头部（my_wnd），这与编译内核中的处理逻辑匹配，从而在终端窗口就可以通过我们的encc算法进行窗口值更新。
 ```
