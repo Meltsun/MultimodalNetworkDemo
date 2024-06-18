@@ -1,0 +1,59 @@
+{
+    "topology":[
+        {"id": 1, "lable": "h1","type":"host"},
+        {"id":2, "lable": "h2","type":"host"},
+        {"id":3, "lable": "h3","type":"host"},
+        {"id":4, "lable": "s1","type":"switch"}
+    ],
+    "links":[
+        { "from": "2","to": "1" },
+        { "from": "4","to": "3" },
+        { "from": "1","to": "4" },
+        { "from": "1","to": "3" }
+    ],
+    "nodeinformation":[
+      {
+      },
+      {
+        "id":2,
+        "label":"switch2",
+        "ip":"10.0.0.1",
+        "packet_count":"100",
+        "interface":{
+          "ens0":"1",
+          "ens2":"2"
+        }
+      },
+      {
+        "id":3,
+        "label":"switch2",
+        "ip":"10.0.0.1",
+        "packet_count":"100",
+        "interface":{
+          "ens0":"1",
+          "ens2":"2"
+        }
+      },
+      {
+        "id":4,
+        "label":"switch2",
+        "ip":"10.0.0.1",
+        "packet_count":"100",
+        "interface":{
+          "ens0":"1",
+          "ens2":"2"
+        }
+      }
+      ],
+      "linkinformation":[
+        {
+          "id":1,
+          "delay":10,
+          "band":10,
+          "lost":0
+        }
+      ]
+}
+
+
+  
