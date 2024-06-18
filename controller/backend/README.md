@@ -19,6 +19,7 @@ TypeError: 'type' object is not subscriptable
 这是因为在 Python 3.9 之前的版本中，list 不能直接用于类型注解，
 解决方法为
 ```python
+从 typing 模块中导入 List
 from typing import List
 将错误提示中的list替换为 List
 ```
