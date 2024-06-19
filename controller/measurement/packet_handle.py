@@ -36,21 +36,24 @@ def calculate_tail_delay_and_congestion_rate(packets1, packets2):
             delay.append(abs(arrival_time2 - arrival_time1))
             # tail_delay = max(tail_delay, abs(arrival_time2 - arrival_time1))
     delay.sort()
-    
+ 
     # 计算最大1%的时延平均值
-    tail_percentage = 0.01
-    tail_count = max(1, int(len(delay) * tail_percentage))
-    tail_delays = delay[-tail_count:]
-    tail_delay = sum(tail_delays) / len(tail_delays)
-    
-    if delay:
-        average_value = sum(delay) / len(delay)
-
     values_greater_than_average = []
-    for num in delay:
-        if num > average_value * 1.2:
-            values_greater_than_average.append(num)
+    if delay:
+        tail_percentage = 0.01
+        tail_count = max(1, int(len(delay) * tail_percentage))
+        tail_delays = delay[-tail_count:]
+        tail_delay = sum(tail_delays) / len(tail_delays)
+        average_value = sum(delay) / len(delay)
+    else:
+        return 0,0
     
+    if len(delay) < 3000:
+        return round(tail_delay, 4), 100
+    else: 
+        for num in delay:
+            if num > average_value * 1.2:
+                values_greater_than_average.append(num)
     
     return round(tail_delay, 4), round(len(values_greater_than_average) / len(delay) * 100 if delay else 0, 3)
 

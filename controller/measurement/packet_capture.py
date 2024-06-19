@@ -8,7 +8,7 @@ import re
 from concurrent.futures import ThreadPoolExecutor
 
 
-duration = 110  # 指定网卡监听时间，一般比视频时长稍大一些
+duration = 120  # 指定网卡监听时间，一般比视频时长稍大一些
 
 server_interface = 'eno2'  # 指定要监听的网络接口
 client_interface = 'eno2'
@@ -75,7 +75,7 @@ def get_port():
     )
     
     with Connection(host=server_host, user=username, connect_kwargs={"password": password}) as conn:
-        result = conn.run(f"sudo timeout 20 tcpdump -i {server_interface} port {quic_port} or port {webrtc_port} or port {https_port} -n -vv | grep {server_host} | sed -n '1p'" , pty=True, watchers=[sudo_pass], warn=True)
+        result = conn.run(f"sudo timeout 25 tcpdump -i {server_interface} port {quic_port} or port {webrtc_port} or port {https_port} -n -vv | grep {server_host} | sed -n '1p'" , pty=True, watchers=[sudo_pass], warn=True)
         # 处理输出，获取服务器端口号
         output = result.stdout.strip()
         match = re.search(r'(\b10\.180\.180\.2\b)\.(\d+)', output)
@@ -127,7 +127,7 @@ end_time = time.time()
 
 print(end_time - start_time)
 
-print("尾时延(s)：", tail_delay)
+print("尾时延(ms)：", tail_delay)
 print("卡顿率(%)：", congestion_rate)
 print("分辨率：", resolution)
 print("服务器端口号：", ip_port)
