@@ -153,3 +153,16 @@ python -m schedule
 ```
 运行整个系统时，请`from schedule import MultiPathTask`。具体请查看docstring。
 一个MultiPathTask实例包含一个P4Switch实例，所以同样不适合重复创建。
+### 10. 网络连接配置 by WJF
+##### 终端：
+文件在六个终端162、164、166、168、172、174的/mutilmodel/milliontcp文件夹下
+运行sudo ./write.sh文件进行以下操作：
+1、设置静态 IP 地址和 DNS
+2、禁用 IPv6
+3、绑定 MAC 地址
+4、配置路由
+##### 交换机：
+文件在6个交换机176、178、182、184、186、188的/ECCN文件下
+运行sudo ./writeswitch.sh文件进行以下操作：
+1、禁用IPv4和IPv6
+2、绑定MAC地址
