@@ -1,0 +1,80 @@
+#!/bin/bash
+
+# 配置参数
+MAC_ADDRESSES=("a0:36:9f:d9:3b:18" "a0:36:9f:d9:3b:19" "a0:36:9f:d9:3b:1a" "a0:36:9f:d9:3b:1b" "a0:36:9f:d9:3a:e4") # 设置你的 MAC 地址列表
+INTERFACES=("bmv2-port1" "bmv2-port2" "bmv2-port3" "bmv2-port4" "bmv2-port5")
+
+# 检查MAC地址和接口数量是否匹配
+if [ ${#MAC_ADDRESSES[@]} -ne ${#INTERFACES[@]} ]; then
+    echo "Error: Number of MAC addresses and interfaces must match."
+    exit 1
+fi
+
+# 删除所有同名的连接
+for iface in "${INTERFACES[@]}"; do
+    echo "Checking and deleting all connections related to $iface..."
+    connections_to_delete=$(nmcli -t -f NAME connection show | grep "$iface")
+    if [ -n "$connections_to_delete" ]; then
+        for con in $connections_to_delete; do
+            echo "Deleting connection: $con"
+            sudo nmcli connection delete "$con"
+        done
+    else
+        echo "No connections found for $iface."
+    fi
+done
+
+# 禁用指定接口的IPv4和IPv6，并绑定MAC地址
+for i in "${!INTERFACES[@]}"; do
+    iface=${INTERFACES[$i]}
+    mac=${MAC_ADDRESSES[$i]}
+
+    # 检查接口是否存在
+    if ! nmcli device status | grep -q "$iface"; then
+        echo "Error: Interface $iface not found."
+        continue
+    fi
+
+    # 检查接口状态
+    device_state=$(nmcli -t -f DEVICE,STATE device status | grep "$iface" | cut -d: -f2)
+    if [ "$device_state" != "connected" ] && [ "$device_state" != "disconnected" ]; then
+        echo "Error: Interface $iface is in state $device_state. Skipping..."
+        continue
+    fi
+
+    # 获取当前接口的活动连接名称
+    CON_NAME=$(nmcli -t -f NAME connection show --active | grep "$iface")
+
+    # 如果没有活动连接，则创建一个新的临时连接
+    if [ -z "$CON_NAME" ]; then
+        echo "No active connection for $iface. Creating a temporary connection..."
+        sudo nmcli connection add type ethernet ifname "$iface" con-name "duomotai-$iface"
+        CON_NAME="duomotai-$iface"
+    else
+        echo "Using existing active connection for $iface: $CON_NAME"
+    fi
+
+    # 禁用IPv4
+    echo "Disabling IPv4 on $iface..."
+    sudo nmcli connection modify "$CON_NAME" ipv4.method disabled
+
+    # 禁用IPv6
+    echo "Disabling IPv6 on $iface..."
+    sudo nmcli connection modify "$CON_NAME" ipv6.method ignore
+
+    # 绑定MAC地址
+    echo "Binding MAC address $mac on $iface..."
+    sudo nmcli connection modify "$CON_NAME" 802-3-ethernet.cloned-mac-address "$mac"
+
+    # 启动连接
+    echo "Bringing up the connection $CON_NAME on $iface..."
+    if ! nmcli connection up "$CON_NAME"; then
+        echo "Error: Failed to bring up the connection $CON_NAME on $iface."
+        continue
+    fi
+
+    # 添加延迟确保连接启动
+    sleep 2
+done
+
+echo "Configuration completed."
