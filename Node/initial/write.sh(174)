@@ -1,0 +1,50 @@
+#!/bin/bash
+
+# 配置参数
+CON_NAME="duomotai"
+IP_ADDR="10.174.174.2/24"
+GATEWAY="10.174.174.1"
+DNS_SERVERS="202.112.144.236"  # 设置你的 DNS 服务器地址
+MAC_ADDRESS="e8:61:1f:37:b6:8f" # 设置你的 MAC 地址
+
+# 定义多个临时路由，每条路由格式为"目的地网络 via 网关"
+ROUTES=(
+    "10.162.162.0/24 via 10.174.174.1"
+    "10.164.164.0/24 via 10.174.174.1"
+    "10.166.166.0/24 via 10.174.174.1"
+    "10.168.168.0/24 via 10.174.174.1"
+    "10.170.170.0/24 via 10.174.174.1"
+    "10.172.172.0/24 via 10.174.174.1"
+    "10.180.180.0/24 via 10.174.174.1"
+)
+
+# 删除现有连接（如果存在）
+echo "Deleting existing connection..."
+nmcli connection delete "$CON_NAME"
+
+# 设置静态 IP 地址和 DNS
+echo "Setting IP address and DNS..."
+nmcli connection add con-name "$CON_NAME" ifname eno2 type ethernet ipv4.addresses "$IP_ADDR" ipv4.gateway "$GATEWAY" ipv4.dns "$DNS_SERVERS" ipv4.method manual
+
+# 禁用 IPv6
+echo "Disabling IPv6..."
+nmcli connection modify "$CON_NAME" ipv6.method ignore
+
+# 绑定 MAC 地址
+echo "Binding MAC address..."
+nmcli connection modify "$CON_NAME" 802-3-ethernet.cloned-mac-address "$MAC_ADDRESS"
+
+echo "Adding static routes..."
+for ROUTE in "${ROUTES[@]}"; do
+    DEST=$(echo "$ROUTE" | awk '{print $1}')
+    GATE=$(echo "$ROUTE" | awk '{print $3}')
+    echo "Adding route: $DEST via $GATE with metric 1"
+    nmcli connection modify "$CON_NAME" +ipv4.routes "$DEST $GATE 1"
+done
+
+# 启动连接
+echo "Bringing up the connection..."
+nmcli connection up "$CON_NAME"
+
+echo "Network configuration completed."
+
