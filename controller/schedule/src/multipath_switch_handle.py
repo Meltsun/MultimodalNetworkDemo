@@ -1,7 +1,8 @@
 import typing_extensions as typing
 
-from schedule.src.utils import logger,SwitchConfig,switch_configs
-from p4_command_controller import SimpleSwitchHandle
+from schedule.src.utils import logger,SwitchConfig,switch_config
+
+from p4_command_controller.bmv2 import SimpleSwitchHandle
 
 class MultiPathSwitchHandle(SimpleSwitchHandle):
     def __init__(self,config:SwitchConfig) -> None:
@@ -15,6 +16,8 @@ class MultiPathSwitchHandle(SimpleSwitchHandle):
             logger = logger
         )
         self.register_indexes=tuple(config.bmv2.register_indexes)
+        self.set_register("multipath_ability",index=0,value=1)
+        
     def enable_multipath(self):
         self.set_register("transmition_model",index=1,value=1)
     
@@ -36,9 +39,9 @@ class MultiPathSwitchHandle(SimpleSwitchHandle):
 class MultiPathSwitchComposite:
     def __init__(self) -> None:
         logger.info("正在连接bmv2")
-        for i in switch_configs:
+        for i in switch_config:
             logger.info(i)
-        self.switches = [MultiPathSwitchHandle(i) for i in switch_configs]
+        self.switches = [MultiPathSwitchHandle(i) for i in switch_config]
         logger.info("已连接bmv2")
     
     def _broadcast(self,method:typing.Callable,*args,**kwargs):

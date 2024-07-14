@@ -29,11 +29,13 @@ class IperfHandle:
     """
     stdout:BufferedReader
     logger:logging.Logger
-    def __init__(self,cmd:List[str],logger=None) -> None:
+    def __init__(self,cmd:List,logger=None) -> None:
+        cmd = [str(i) for i in cmd]
         if logger is None:
-            IperfHandle.logger=logging.getLogger('iperf_handle')
+            self.logger=logging.root
         else:
-            IperfHandle.logger=logger
+            self.logger=logger
+        self.logger.info(' '.join(cmd))
         self.process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         assert isinstance(self.process.stdout,BufferedReader)
         self.stdout = self.process.stdout
@@ -77,8 +79,7 @@ class IperfHandle:
             #total
             state.total=NumOfPackets(splited[11])
         else :
-            IperfHandle.logger.info(f"未知输出，未进行解析：{line}")
-            return None
+            raise Exception(f"未知输出，未进行解析：{line}")
         return state
 
     T = TypeVar("T",Literal[True],Literal[False])

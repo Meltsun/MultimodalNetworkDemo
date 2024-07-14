@@ -5,7 +5,7 @@ from typing_extensions import Iterable,Callable,TypeVar,Union,Sequence,NamedTupl
 from itertools import permutations,product
 
 from schedule.src.iperf_handle import NetworkState,IperfHandle
-from schedule.src.utils import logger,switch_configs
+from schedule.src.utils import logger
 from schedule.src.multipath_switch_handle import MultiPathSwitchComposite
 
 @dataclass

@@ -128,8 +128,8 @@ fileFrans：把需要用到的shell文件传递给所有交换机
 接口请查看`controller/p4_command_controller/p4_switch.py`里abc的docstring。
 #### 注意事项
 1. 建立ssh连接耗时较长，对于每一台交换机，请不要重复创建实例，而是只在程序启动时创建一个实例，之后一直用这一个。
-2. 程序结束时记得调用close关闭。
-3. 程序目前需要持续和bmv2的cli连接，而一个bmv2同一时间只能打开一个cli。**正在优化**
+2. 程序结束时记得调用close关闭ssh连接。
+
 ### 9. 多路径调度模块 by WXY
 `./controller/schedule`
 使用iperf测试速率和乱序率，使用ddqn计算选路策略，使用流表下发模块修改寄存器值来应用策略
@@ -139,7 +139,7 @@ fileFrans：把需要用到的shell文件传递给所有交换机
 1. 按照example编写config.toml，配置账号密码等(这些东西可不兴往github上放啊)
 2. 确认已经安装iperf
 3. 安装cuda、pytorch
-2. 安装其他python依赖项：fabric typing_extensions pydantic_extra_types netaddr numpy
+2. 安装其他python依赖项：fabric typing_extensions pydantic_extra_types netaddr numpy toml
 #### 启动
 先启动客户端,再启动服务器
 ##### 客户端

@@ -1,11 +1,10 @@
 
 from contextlib import contextmanager
-import typing
 import fabric
 import typing_extensions as typing
 import logging
 from ipaddress import IPv4Address
-import typing_extensions as typing
+
 
 from p4_command_controller.p4_switch import P4Switch,table_entry_params
 
@@ -92,11 +91,10 @@ class SimpleSwitchHandle(P4Switch):
         发送命令。
         会自动在末尾添加\\n，如果只需要发送一行命令则无需手动添加。
         """
-        result:fabric.Result = self.connection.run(f"""
-python3 /home/sinet/P4/behavioral-model/tools/runtime_CLI.py --thrift-port {self.bmv2_thrift_port} << EOF
-{'\n'.join(cmds)}
-EOF
-            """,
+        cmd_str='\n'.join(cmds)
+        std_in=f"EOF\n{cmd_str}\nEOF"
+        result:fabric.Result = self.connection.run(
+            f"python3 /home/sinet/P4/behavioral-model/tools/runtime_CLI.py --thrift-port {self.bmv2_thrift_port} << {std_in}",
             timeout=60,
             hide=True
         )
