@@ -83,7 +83,7 @@ class SimpleSwitchHandle(P4Switch):
             )
             if len(result.stderr)>0:
                 raise Exception(f"命令运行报错:\n{result.stdout}")
-            self.logger.info(result.stdout)
+            self.logger.debug(result.stdout)
     
     
     def send_cmds(self,cmds:typing.List[str]):
@@ -100,7 +100,7 @@ class SimpleSwitchHandle(P4Switch):
         )
         if len(result.stderr)>0:
             raise Exception(f"命令运行报错:\n{result.stdout}")
-        self.logger.info(result.stdout)
+        self.logger.debug(result.stdout)
 
     @typing.override
     def reset_register(self, name: str):

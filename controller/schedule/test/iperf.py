@@ -6,10 +6,8 @@ class TestIperf(unittest.TestCase):
     def test_config(self):
         handle = IperfHandle(['iperf','-s','-i',iperf_config.interval,'-p',iperf_config.port,'-u','-e'])
         while True:
-            input()
-            print("================================================")
-            for line in handle.stdout:
-                print(repr(str(line)))
-                
+            for i in handle.get_network_states_block():
+                print(i)
+
 if __name__ == '__main__':
     unittest.main()

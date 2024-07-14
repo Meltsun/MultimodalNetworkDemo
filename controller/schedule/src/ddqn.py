@@ -15,11 +15,11 @@ class ReplayBuffer:
     def __init__(self, capacity):
         self.buffer = collections.deque(maxlen=capacity)  # define buffer queue, FIFO
 
-    def add(self, state, action, reward, next_state):  # add data into buffer
+    def add(self, state:AllState, action, reward, next_state:AllState):  # add data into buffer
         self.buffer.append((state, action, reward, next_state))
-        state_str = np.array_str(state)
+        state_str = np.array_str(np.array(state))
         state_str = state_str.replace('\n', '')
-        next_state_str = np.array_str(next_state)
+        next_state_str = np.array_str(np.array(next_state))
         next_state_str = state_str.replace('\n', '')
         logger.debug(f"{state_str} {action} {reward} {next_state_str}")
 
@@ -160,7 +160,7 @@ class MultiPathTask:
         
         env=self.env
         # start operation. In each episode, the learning need to continue until done=1(ood rate is lower than demand)
-        state = env.reset(False) # initial state. random choose a stored state
+        state = env.reset() # initial state. random choose a stored state
         for i_episode in range(num_episodes):
             #done = False # initial done
             logger.debug(f"round {i_episode}")
