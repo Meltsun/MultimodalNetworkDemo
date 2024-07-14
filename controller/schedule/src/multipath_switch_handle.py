@@ -22,14 +22,15 @@ class MultiPathSwitchHandle(SimpleSwitchHandle):
         self.set_register("transmition_model",index=1,value=0)
         
     def set_multipath_state(self,num:typing.Tuple[int,int,int],order:typing.Tuple[int,int,int]):
-        register_indexes=self.register_indexes
-        for i in ('count','initial','order'):
-            self.reset_register(i)
-        for i,v in zip(register_indexes,num):
-            for name in ('count','initial'):
-                self.set_register(name,index=i,value=v)
-        for i,v in zip(register_indexes,order):
-            self.set_register('order',index=i,value=v)
+        with self.make_deferred_executor():
+            register_indexes=self.register_indexes
+            for i in ('multipath_count','multipath_initial','multipath_order'):
+                self.reset_register(i)
+            for i,v in zip(register_indexes,num):
+                for name in ('multipath_count','multipath_initial'):
+                    self.set_register(name,index=i,value=v)
+            for i,v in zip(register_indexes,order):
+                self.set_register('multipath_order',index=i,value=v)
     
 
 class MultiPathSwitchComposite:

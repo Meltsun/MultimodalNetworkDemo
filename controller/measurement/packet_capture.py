@@ -8,7 +8,7 @@ import re
 from concurrent.futures import ThreadPoolExecutor
 
 
-duration = 110  # 指定网卡监听时间，一般比视频时长稍大一些
+duration = 120  # 指定网卡监听时间，一般比视频时长稍大一些
 
 server_interface = 'eno2'  # 指定要监听的网络接口
 client_interface = 'eno2'
@@ -24,9 +24,9 @@ password = 'bjtungirc'
 yes = 'yes'
 
 # 180视频服务器端口（目前，之后可能会更改）
-quic_port = 8080
+quic_port = 5050
 webrtc_port = 8081
-https_port = 8002
+https_port = 5051
 
 
 # pcap 文件路径
@@ -75,7 +75,7 @@ def get_port():
     )
     
     with Connection(host=server_host, user=username, connect_kwargs={"password": password}) as conn:
-        result = conn.run(f"sudo timeout 20 tcpdump -i {server_interface} port {quic_port} or port {webrtc_port} or port {https_port} -n -vv | grep {server_host} | sed -n '1p'" , pty=True, watchers=[sudo_pass], warn=True)
+        result = conn.run(f"sudo timeout 25 tcpdump -i {server_interface} port {quic_port} or port {webrtc_port} or port {https_port} -n -vv | grep {server_host} | sed -n '1p'" , pty=True, watchers=[sudo_pass], warn=True)
         # 处理输出，获取服务器端口号
         output = result.stdout.strip()
         match = re.search(r'(\b10\.180\.180\.2\b)\.(\d+)', output)
@@ -104,11 +104,20 @@ with ThreadPoolExecutor() as executor:
     ip_port = int(t3.result())
 
 
+if ip_port == quic_port:
+    protocols = 22
+elif ip_port == webrtc_port:
+    protocols = 23
+elif ip_port == https_port:
+    protocols = 24
+else:
+    protocols = 0
+
 # 对数据包进行处理
 # 服务端
-packets1 = extract_id_timestamp(server_path)
+packets1 = extract_id_timestamp(server_path, protocols)
 # 客户端
-packets2 = extract_id_timestamp(client_path)
+packets2 = extract_id_timestamp(client_path, protocols)
 
 tail_delay, congestion_rate = calculate_tail_delay_and_congestion_rate(packets1, packets2)
 resolution = extract_resolution(video_path)
@@ -118,19 +127,11 @@ end_time = time.time()
 
 print(end_time - start_time)
 
-print("尾时延(s)：", tail_delay)
+print("尾时延(ms)：", tail_delay)
 print("卡顿率(%)：", congestion_rate)
 print("分辨率：", resolution)
 print("服务器端口号：", ip_port)
 
-if ip_port == quic_port:
-    protocols = 22
-elif ip_port == webrtc_port:
-    protocols = 23
-elif ip_port == https_port:
-    protocols = 24
-else:
-    protocols = 0
 
 information = {"tail_delay":tail_delay, "congestion_rate":congestion_rate, "resolution_height":resolution[0], "resolution_width":resolution[1], "protocol":str(protocols)}
 
@@ -144,7 +145,6 @@ url = 'http://219.242.112.215:8000/Videosituation/add'
 # 要发送的数据
 data = information
 
-"""
 # 发送 POST 请求
 response = requests.post(url, json=data)
 
@@ -153,7 +153,7 @@ if response.status_code == 200:
     print("数据成功发送到数据库接口！")
 else:
     print("数据发送失败。")
-"""
+
 
 
 
