@@ -7,6 +7,8 @@ from pydantic import BaseModel,Field
 from ipaddress import IPv4Address
 import typing_extensions as typing
 
+os.environ['PYTHONIOENCODING'] = 'utf-8'
+
 __all__=['logger','switch_configs']
 
 root = Path(__file__).parent.parent
@@ -26,7 +28,8 @@ class SwitchConfig(BaseModel):
 
 
 CONFIG_PATH = root/"config.toml"
-switch_configs = [SwitchConfig(**i) for i in toml.load(CONFIG_PATH)['multipath']['switch']]
+with CONFIG_PATH.open(encoding="utf8") as file:
+    switch_configs = [SwitchConfig(**i) for i in toml.load(file)['multipath']['switch']]
 
 LOG_FILE_PATH = root/"logs"/datetime.now().strftime("%Y%m%d_%H-%M-%S.log")
 LOG_FILE_PATH.parent.mkdir(exist_ok=True)

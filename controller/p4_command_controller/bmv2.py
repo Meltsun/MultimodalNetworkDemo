@@ -1,43 +1,14 @@
 
+from contextlib import contextmanager
 import typing
 import fabric
-import io
-import queue
 import typing_extensions as typing
-import invoke
 import logging
 from ipaddress import IPv4Address
+import typing_extensions as typing
 
 from p4_command_controller.p4_switch import P4Switch,table_entry_params
 
-class _CommandIO(typing.TextIO):
-    """
-    fabric接收一个readable输入，并启动一个线程不断的读取它。如果使用stringIO会导致线程安全问题。
-    所以被逼无奈我封装了这么个对象，并使用线程安全的queuq传递数据，并且确保每次输入都以\\n结尾。
-    """
-    def __init__(self) -> None:
-        self.q:queue.Queue[str]=queue.Queue()
-    def read(self, n: int = -1):
-        q=self.q
-        all_strings:list[str]=[]
-        while n != 0 and not q.empty():
-            all_strings.append(q.get())
-            n -= 1
-        return ''.join(all_strings)
-    
-    def add_cmd(self,cmd:str):
-        if cmd:
-            for i in cmd:
-                self.q.put(i)
-            if cmd[-1]!='\n':
-                self.q.put('\n')
-    
-    def send_terminate(self) -> None:
-        return self.q.put("\x03")
-
-    def __getattr__(self, name: str):
-        raise Exception(f"意外的方法调用，请实现这个方法:{name}")
-    
 class SimpleSwitchHandle(P4Switch):
     """
     用于向远程的bmv2 simple switch发送命令。
@@ -57,65 +28,82 @@ class SimpleSwitchHandle(P4Switch):
         :param logger: 使用的logger，如果不传入则会创建一个默认的
         :param connect_immediately: 默认立即连接，可以设置为false以在之后手动连接
         """
-        
+        self.deferred_buffer:typing.Optional[typing.List[str]] = None
         self.logger = logger if isinstance(logger,logging.Logger) else logging.getLogger("Simple Switch Cli")
-        self.command_in=_CommandIO()
-        self.stdout=io.StringIO()
-        self._lifespan = self._make_lifespan(ssh_ip,ssh_port,user,password,bmv2_thrift_port)
+        self._lifespan = self._make_lifespan(ssh_ip,ssh_port,user,password)
+        self.bmv2_thrift_port=bmv2_thrift_port
         if connect_immediately:
-            next(self._lifespan)
-            self._state = '已连接'
-        else:
-            self._state = '未连接'
+            self.connect()
     
     def connect(self) -> None:
-        if self._state == '未连接':
-            next(self._lifespan)
+        if getattr(self,'connection',None) is None:
+            self.connection = next(self._lifespan)
     
     def close(self) -> None:
         """
         关闭cli，断开ssh连接。
         """
-        self.command_in.send_terminate()
-        try:
+        if getattr(self,'connection',None) is not None:
             next(self._lifespan)
-        except StopIteration:
-            pass
-        self.logger.info(f"剩余目标交换机cli输出：\n{self.stdout.getvalue()}")
     
-    def _make_lifespan(self,ip:IPv4Address,port:int,user:str,password:str,bmv2_port:int) -> typing.Generator[None, None, None]:
+    def _make_lifespan(self,ip:IPv4Address,port:int,user:str,password:str) -> typing.Generator[fabric.Connection, None, None]:
         with fabric.Connection(
-            host = ip,
+            host = str(ip),
             port = port,
             user = user,
             connect_kwargs=dict(password=password)
         ) as connection:
-            p:invoke.runners.Promise=connection.run(
-                f"simple_switch_CLI --thrift-port {bmv2_port}",
-                asynchronous=True,
-                in_stream=self.command_in,
-                out_stream=self.stdout,
-                pty = True
-            )
-            yield 
-            try:
-                p.join()
-            except invoke.exceptions.UnexpectedExit:
-                self.logger.info("p4 runtime cli 已经关闭。")
+            yield connection
+        self.logger.info("p4 runtime cli 已经关闭。")
 
+    @contextmanager
+    def make_deferred_executor(self):
+        """
+        返回一个上下文。
+        缓存所有要发送的命令，在最后统一发送
+        """
+        if self.deferred_buffer is not None:
+            raise Exception("不能同时开启两个延迟执行器")
+        self.deferred_buffer=[]
+        yield
+        self.send_cmds(self.deferred_buffer)
+        self.deferred_buffer=None
+    
     def send_cmd(self,cmd:str):
+        """
+        发送单个命令。
+        会自动在末尾添加\\n，如果只需要发送一行命令则无需手动添加。
+        """
+        if self.deferred_buffer is not None:
+            self.deferred_buffer.append(cmd)
+        else:
+            result:fabric.Result = self.connection.run(
+                f'python3 /home/sinet/P4/behavioral-model/tools/runtime_CLI.py --thrift-port {self.bmv2_thrift_port} <<< \"{cmd}\"',
+                timeout=60,
+                hide=True
+            )
+            if len(result.stderr)>0:
+                raise Exception(f"命令运行报错:\n{result.stdout}")
+            self.logger.info(result.stdout)
+    
+    
+    def send_cmds(self,cmds:typing.List[str]):
         """
         发送命令。
         会自动在末尾添加\\n，如果只需要发送一行命令则无需手动添加。
         """
-        self.command_in.add_cmd(cmd)
-    
-    def get_output(self)->str:
-        """
-        获取所有输出。
-        """
-        return self.stdout.getvalue()
-    
+        result:fabric.Result = self.connection.run(f"""
+python3 /home/sinet/P4/behavioral-model/tools/runtime_CLI.py --thrift-port {self.bmv2_thrift_port} << EOF
+{'\n'.join(cmds)}
+EOF
+            """,
+            timeout=60,
+            hide=True
+        )
+        if len(result.stderr)>0:
+            raise Exception(f"命令运行报错:\n{result.stdout}")
+        self.logger.info(result.stdout)
+
     @typing.override
     def reset_register(self, name: str):
         return self.send_cmd(f"register_reset {name}")
