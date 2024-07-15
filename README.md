@@ -152,7 +152,7 @@ python -m schedule
 
 ```bash
 #客户端服务器（169）
-bash ./controller/schedule/retry_iperf.sh <server_ip> <port>
+bash ./client/retry_iperf.sh <server_ip> <port>
 ```
 #### 作为模块导入
 `from schedule import MultiPathTask`
