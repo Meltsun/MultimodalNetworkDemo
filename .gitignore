@@ -9,3 +9,4 @@ controller/database.db
 **/.venv
 **/test.py
 controller/schedule/api.py
+*.deb

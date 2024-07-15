@@ -5,7 +5,7 @@ from typing_extensions import Iterable,Callable,TypeVar,Union,Sequence,NamedTupl
 from itertools import permutations,product
 
 from schedule.src.iperf_handle import NetworkState,IperfHandle
-from schedule.src.utils import logger,switch_configs
+from schedule.src.utils import logger
 from schedule.src.multipath_switch_handle import MultiPathSwitchComposite
 
 @dataclass
@@ -88,8 +88,8 @@ class Environment:
                 (1,2,3),
             )
         )
-        
-        state = AllState.from_net_and_mp_state(self.iperf_handle.get_network_states(),self.multipath_state)
+        self.network_states=self.iperf_handle.get_network_states_block()
+        state = AllState.from_net_and_mp_state(self.network_states,self.multipath_state)
         self._reseted=True
         return state
     
@@ -109,12 +109,14 @@ class Environment:
             )
         )
 
-        net_states=self.iperf_handle.monitor_for_seconds(1.1)
+        new_network_states=self.iperf_handle.monitor_for_seconds(1.1)
+        if len(new_network_states) > 0:
+            self.network_states=new_network_states
 
-        reward = 0.3 * get_avg_bandwidth(net_states)/self.max_total_bw - 0.7 * get_percentage_out_of_order(net_states)
+        reward = 0.3 * get_avg_bandwidth(self.network_states)/self.max_total_bw - 0.7 * get_percentage_out_of_order(self.network_states)
         reward *=100
 
-        return AllState.from_net_and_mp_state(net_states,self.multipath_state),reward
+        return AllState.from_net_and_mp_state(self.network_states,self.multipath_state),reward
     
     def close(self) -> None:
         """

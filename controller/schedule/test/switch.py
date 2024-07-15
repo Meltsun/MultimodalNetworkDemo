@@ -7,9 +7,10 @@ class TestUtils(unittest.TestCase):
         super().__init__(methodName)
         self.switch=MultiPathSwitchComposite()
         
+        self.switch.enable_multipath()
     
     def test_register(self):
-        self.switch.set_multipath_state((4,5,6),(1,2,3))
+        self.switch.set_multipath_state((10,1,10),(1,3,2))
         
 if __name__ == '__main__':
     unittest.main()

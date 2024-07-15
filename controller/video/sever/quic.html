@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QUIC Video Playback</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            text-align: center;
+        }
+        #video {
+            width: 1080px;
+            height: 720px;
+            margin: 20px auto;
+            outline: none; /* 去掉视频边框 */
+            background: black; /* 视频背景为黑色 */
+        }
+        #infoDisplay {
+            margin-top: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            display: inline-block;
+            width: 300px; /* 增加底框的宽度 */
+        }
+        .info-item {
+            margin: 10px 0;
+            font-size: 22px; /* 加大字体 */
+            color: #333;
+        }
+        .info-label {
+            font-weight: bold; /* 加粗 */
+            color: #007BFF; /* 标签颜色 */
+            font-size: 24px; /* 标签字体加大 */
+        }
+    </style>
+</head>
+<body>
+    <video id="video" controls preload="none"></video>
+    <div id="infoDisplay">
+        <div class="info-item">Current Definition: <span id="currentResolution" class="info-label">N/A</span></div>
+        <div class="info-item">Quality Score: <span id="qualityScore" class="info-label">0</span></div>
+        <div class="info-item">Stalled Time: <span id="stalledTime" class="info-label">0</span> sec</div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script>
+        if (Hls.isSupported()) {
+            const video = document.getElementById('video');
+            const currentResolutionDisplay = document.getElementById('currentResolution');
+            const qualityScoreDisplay = document.getElementById('qualityScore');
+            const stalledTimeDisplay = document.getElementById('stalledTime');
+            const hls = new Hls();
+
+            hls.loadSource('https://10.180.180.2:5050/webrtc/master.m3u8'); // 替换为你的服务器URL
+            hls.attachMedia(video);
+
+            let isPlaying = false;
+            let qualityScore = 0;
+            let stalledTime = 0;
+            let stallStartTime = null;
+
+            hls.on(Hls.Events.LEVEL_SWITCHED, function(event, data) {
+                const currentLevel = hls.levels[data.level];
+                currentResolutionDisplay.innerText = `${currentLevel.width}x${currentLevel.height}`;
+            });
+
+            video.addEventListener('play', function() {
+                isPlaying = true;
+                qualityScore = 0;
+                stalledTime = 0;
+                stallStartTime = null;
+
+                const intervalId = setInterval(() => {
+                    if (isPlaying) {
+                        const currentLevel = hls.currentLevel >= 0 ? hls.levels[hls.currentLevel] : null;
+                        if (currentLevel) {
+                            qualityScore += currentLevel.width * currentLevel.height;
+                            qualityScoreDisplay.innerText = qualityScore;
+                        }
+                    } else {
+                        clearInterval(intervalId);
+                    }
+                }, 1000);
+            });
+
+            video.addEventListener('ended', function() {
+                isPlaying = false;
+            });
+
+            video.addEventListener('stalled', function() {
+                if (stallStartTime === null) {
+                    stallStartTime = Date.now();
+                }
+            });
+
+            video.addEventListener('waiting', function() {
+                if (stallStartTime === null) {
+                    stallStartTime = Date.now();
+                }
+            });
+
+            video.addEventListener('playing', function() {
+                if (stallStartTime) {
+                    stalledTime += (Date.now() - stallStartTime) / 1000;
+                    stallStartTime = null;
+                }
+            });
+
+            setInterval(() => {
+                stalledTimeDisplay.innerText = stalledTime.toFixed(2);
+            }, 1000);
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            video.src = 'https://10.180.180.2:5050/webrtc/master.m3u8'; // 替换为你的服务器URL
+        }
+    </script>
+</body>
+</html>

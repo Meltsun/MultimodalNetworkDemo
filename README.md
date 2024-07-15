@@ -128,8 +128,8 @@ fileFrans：把需要用到的shell文件传递给所有交换机
 接口请查看`controller/p4_command_controller/p4_switch.py`里abc的docstring。
 #### 注意事项
 1. 建立ssh连接耗时较长，对于每一台交换机，请不要重复创建实例，而是只在程序启动时创建一个实例，之后一直用这一个。
-2. 程序结束时记得调用close关闭。
-3. 程序目前需要持续和bmv2的cli连接，而一个bmv2同一时间只能打开一个cli。**正在优化**
+2. 程序结束时记得调用close关闭ssh连接。
+
 ### 9. 多路径调度模块 by WXY
 `./controller/schedule`
 使用iperf测试速率和乱序率，使用ddqn计算选路策略，使用流表下发模块修改寄存器值来应用策略
@@ -139,22 +139,26 @@ fileFrans：把需要用到的shell文件传递给所有交换机
 1. 按照example编写config.toml，配置账号密码等(这些东西可不兴往github上放啊)
 2. 确认已经安装iperf
 3. 安装cuda、pytorch
-2. 安装其他python依赖项：fabric typing_extensions pydantic_extra_types netaddr numpy
-#### 启动
-先启动客户端,再启动服务器
-##### 客户端
-启动retry_iperf.sh。此脚本会不断的尝试启动iperf客户端。
-```bash
-bash ./controller/schedule/retry_iperf.sh <server_ip> <port>
-```
-##### 服务器
+2. 安装其他python依赖项：fabric typing_extensions pydantic_extra_types netaddr numpy toml
+#### 启动，直接运行模块时
 直接运行模块时，运行一次调度任务，计算指定轮次后结束。
 ```bash
+#服务端服务器（179）
 cd ./controller
 python -m schedule
 ```
-运行整个系统时，请`from schedule import MultiPathTask`。具体请查看docstring。
-一个MultiPathTask实例包含一个P4Switch实例，所以同样不适合重复创建。
+等待初始化完成后会有提示，要求启动或重启客户端.
+**重复测试时，每次服务端重启后，必须重启客户端，否则iperf无法连接**
+
+```bash
+#客户端服务器（169）
+bash ./controller/schedule/retry_iperf.sh <server_ip> <port>
+```
+#### 作为模块导入
+`from schedule import MultiPathTask`
+具体请查看docstring和__main__
+一个MultiPathTask实例包含2个P4Switch实例，所以同样不适合重复创建
+
 ### 10. 网络连接配置 by WJF
 ##### 终端：
 文件在六个终端162、164、166、168、172、174的/mutilmodel/milliontcp文件夹下

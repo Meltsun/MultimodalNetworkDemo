@@ -9,7 +9,7 @@ import typing_extensions as typing
 
 os.environ['PYTHONIOENCODING'] = 'utf-8'
 
-__all__=['logger','switch_configs']
+__all__=['logger','switch_config']
 
 root = Path(__file__).parent.parent
 
@@ -25,14 +25,20 @@ class SwitchConfig(BaseModel):
     ssh:SSHConfig
     bmv2:Bmv2Config
     name:str
-
+class IperfConfig(BaseModel):
+    interval:int
+    port:int
 
 CONFIG_PATH = root/"config.toml"
 with CONFIG_PATH.open(encoding="utf8") as file:
-    switch_configs = [SwitchConfig(**i) for i in toml.load(file)['multipath']['switch']]
+    all_multipath_config = toml.load(file)['multipath']
+    switch_config = [SwitchConfig(**i) for i in all_multipath_config['switch']]
+    iperf_config = IperfConfig(**all_multipath_config['iperf'])
 
 LOG_FILE_PATH = root/"logs"/datetime.now().strftime("%Y%m%d_%H-%M-%S.log")
 LOG_FILE_PATH.parent.mkdir(exist_ok=True)
+
+logging.basicConfig(level=logging.INFO)
 
 logger=logging.getLogger('schedule')
 logger.setLevel(logging.DEBUG)
