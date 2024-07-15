@@ -3,8 +3,6 @@ import torch
 import collections
 import random
 import numpy as np
-import torch.nn.functional as F
-import random
 import typing_extensions as typing
 from threading import Event
 
@@ -38,7 +36,7 @@ class Qnet(torch.nn.Module):
         self.fc2 = torch.nn.Linear(hidden_dim, action_dim)
 
     def forward(self, x):
-        x1 = F.relu(self.fc1(x))  # use ReLU in layer x to x1
+        x1 = torch.nn.functional.relu(self.fc1(x))  # use ReLU in layer x to x1
         x2 = self.fc2(x1)
         return x2
 
@@ -89,7 +87,7 @@ class DQN:
         max_next_q_values = self.target_q_net(next_states).max(1)[0].view(-1, 1) # get maxQ from target q net according to next_states
         #q_targets = rewards + self.gamma * max_next_q_values * (1 - dones)  # calculate q target
         q_targets = rewards + self.gamma * max_next_q_values  # calculate q target
-        dqn_loss = torch.mean(F.mse_loss(q_values, q_targets))  # calculte mean square error loss
+        dqn_loss = torch.mean(torch.nn.functional.mse_loss(q_values, q_targets))  # calculte mean square error loss
         self.optimizer.zero_grad() # use gradient optimization
         dqn_loss.backward() # backpropagation update parameters
         self.optimizer.step() # start optimize
@@ -117,7 +115,7 @@ target_update = 10 # update freqency of target Q. After 10 times of Q table upda
 # q' = q + lr * (q_target - q)
 
 # operation parameters
-num_episodes = 5 # the total learning times
+# num_episodes = 5 # the total learning times
 minimal_size = 10 # the learning interval. Once store 10 data, begin a learning(update q)
 batch_size = 9 # the amount of sample in buffer
 bw = 8.0
