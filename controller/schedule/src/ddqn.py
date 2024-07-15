@@ -140,55 +140,60 @@ class MultiPathTask:
     
     def pause(self):
         self.task_stop_event.set()
+        while self.isRunning:
+            pass
         
     def close(self):
         """
-        程序结束时请调用，清理ssh连接
+        程序结束时，请调用pause，然后join线程
         """
+        self.pause()
         self.env.close()
-    
-    def __call__(self):
-        self.run()
     
     def run(self):
         """
-        开启多路径调度
+        开启多路径调度。
+        可以通过ctrl+c或者pause中断
         """
         self.task_stop_event.clear()
         self.isRunning=True
         replay_buffer = ReplayBuffer(buffer_size)
         
-        env=self.env
         # start operation. In each episode, the learning need to continue until done=1(ood rate is lower than demand)
-        state = env.reset(False) # initial state. random choose a stored state
-        for i_episode in range(num_episodes):
-            #done = False # initial done
-            logger.debug(f"round {i_episode}")
-
-            while not self.task_stop_event.is_set(): # start learning
-                action = self.agent.take_action(state, bw, bw1, bw2, bw3) # get the action index from NN module
-                next_state, reward = env.step(action) # calculate parameter to action
-                logger.info(f"{next_state},reward")
-                replay_buffer.add(state, action, reward, next_state) # store information into buffer
-                state = next_state # update state
-                # once the size of buffer exceed minimal_size, start learning
-                if replay_buffer.size() > (i_episode+1) * minimal_size:
-                    b_s, b_a, b_r, b_ns = replay_buffer.sample(batch_size) # get sample data
-                    transition_dict = {
-                        'states': b_s,
-                        'actions': b_a,
-                        'next_states': b_ns,
-                        'rewards': b_r,
-                        #'dones': b_d
-                    } # build sample data dictionary
-                    dqn_loss = self.agent.update(transition_dict) # update NN network
-                    logger.debug(f"{dqn_loss=}")
-                    break
-
-            if self.task_stop_event.is_set():
-                self.env.pause()
-                break
+        state = self.env.reset(False) # initial state. random choose a stored state
+        
+        i_episode=1
+        # for i_episode in range(num_episodes):
+        try:
+            while not self.task_stop_event.is_set():
+                logger.debug(f"episode {i_episode}")
+                state = self._run_episode(state,replay_buffer,i_episode * minimal_size)
+                i_episode+=1
+            self.env.pause()
+        except KeyboardInterrupt:
+            logger.info("键盘中断多路径调度")
         self.isRunning=False
         
+    def _run_episode(self,state:AllState,replay_buffer:ReplayBuffer,maxsize:int):
+        while not self.task_stop_event.is_set(): # start learning
+            action = self.agent.take_action(state, bw, bw1, bw2, bw3) # get the action index from NN module
+            next_state, reward = self.env.step(action) # calculate parameter to action
+            logger.info(f"{next_state},reward")
+            replay_buffer.add(state, action, reward, next_state) # store information into buffer
+            state = next_state # update state
+            # once the size of buffer exceed minimal_size, start learning
+            if replay_buffer.size() > maxsize:
+                b_s, b_a, b_r, b_ns = replay_buffer.sample(batch_size) # get sample data
+                transition_dict = {
+                    'states': b_s,
+                    'actions': b_a,
+                    'next_states': b_ns,
+                    'rewards': b_r,
+                    #'dones': b_d
+                } # build sample data dictionary
+                dqn_loss = self.agent.update(transition_dict) # update NN network
+                logger.debug(f"{dqn_loss=}")
+                break
+        return state
 if __name__ == '__main__':
     ...
