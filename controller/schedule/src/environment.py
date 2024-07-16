@@ -77,7 +77,7 @@ class Environment:
         self.switchs = MultiPathSwitchComposite()
     
     def reset(self,wait_iperf_clients=True) -> AllState:
-        self.iperf_handle = IperfHandle(['iperf','-s','-i','1','-p','5000','-u','-e'])
+        self.iperf_handle = IperfHandle(['iperf','-s','-i','1','-p','5000','-u','-e'],logger=logger)
         self.switchs.enable_multipath()
         if wait_iperf_clients:
             input("请启动或重启iperf客户端，并按下回车以继续程序")

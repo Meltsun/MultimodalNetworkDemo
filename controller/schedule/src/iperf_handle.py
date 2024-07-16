@@ -8,9 +8,24 @@ import datetime
 import time
 import sys
 import logging
+from pathlib import Path
 
 Mbps:TypeAlias = float
 NumOfPackets:TypeAlias = int
+
+root = Path(__file__).parent.parent
+LOG_FILE_PATH = root/"logs"/"iperf.log"
+iperf_logger=logging.getLogger('iperf')
+iperf_logger.setLevel(logging.DEBUG)
+file_handler = logging.FileHandler(LOG_FILE_PATH.parent/'iperf.log',encoding='utf8',mode="w")
+file_handler.setLevel(logging.DEBUG)
+file_handler.setFormatter(
+    logging.Formatter(
+        fmt='%(asctime)s - %(name)s - %(levelname)s > %(message)s',
+        datefmt= '%Y-%m-%d %H:%M:%S'
+    )
+)
+
 
 @dataclass
 class NetworkState:
@@ -58,7 +73,7 @@ class IperfHandle:
 
     def phase_line(self,line:str) -> Optional[NetworkState]:
         splited = re.split(r'\s+',line)[:-1]
-
+        iperf_logger.info(line)
         state = NetworkState()
         def unknown_unit(name:str,unit:str)->Never:
             raise Exception(f"{name} 的未知单位：{unit}")
