@@ -51,7 +51,7 @@ class IperfHandle:
             self.logger=logging.root
         else:
             self.logger=logger
-        self.logger.info(' '.join(cmd))
+        self.logger.debug("发送命令"+' '.join(cmd))
         self.process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         assert isinstance(self.process.stdout,BufferedReader)
         self.stdout = self.process.stdout
@@ -73,36 +73,33 @@ class IperfHandle:
         return False
 
     def phase_line(self,line:str) -> Optional[NetworkState]:
-        splited = re.split(r'\s+',line)[:-1]
+        splited = re.split(r'[/\s]+',line)[:-1]
         iperf_logger.info(line)
         state = NetworkState()
         def unknown_unit(name:str,unit:str)->Never:
             raise Exception(f"{name} 的未知单位：{unit}")
         try:
-            if len(splited)>=7 and splited[7]=="out-of-order":#乱序行
+            if len(splited)==8 and splited[7]=="out-of-order": #乱序行
                 state.out_of_order = NumOfPackets(splited[4])
-            elif len(splited)>=16 and len(splited)<=18:#常规行
-                start,end = splited[2].split('-')
-                if float(end) - float(start) > 60:
-                    return None
-                if splited[7] == "Mbits/sec":
+            elif len(splited)==22 or len(splited)==21 and splited[20]=='pps':      #常规行
+                if splited[7] == "Mbits" and splited[8]=="sec":
                     state.bandwidth = Mbps(splited[6])
-                elif splited[7] == "Kbits/sec":
+                elif splited[7] == "Kbits" and splited[8]=="sec":
                     state.bandwidth = Mbps(float(splited[6])/1000)
-                elif splited[7] == "bits/sec":
-                    return None
+                elif splited[7] == "bits" and splited[8]=="sec":
+                    state.bandwidth = Mbps(float(splited[6])/1000000)
                 else:
                     unknown_unit("bandwith",splited[7])
                 #lost
-                state.lost=NumOfPackets(splited[10][:-1])
+                state.lost=NumOfPackets(splited[11])
                 #total
-                state.total=NumOfPackets(splited[11])
+                state.total=NumOfPackets(splited[12])
             else :
                 self.logger.info(f"未知输出，未进行解析：{line}")
                 return None
             return state
         except Exception as e:
-            self.logger.critical(f"iperf解析错误: {line}\n错误详情:{e}\n{traceback.format_exc()}")
+            self.logger.error(f"iperf解析错误: {line}\n错误详情:{e}\n{traceback.format_exc()}")
     
     def get_network_states_block(self) -> List[NetworkState]:
         states=self.get_network_states()

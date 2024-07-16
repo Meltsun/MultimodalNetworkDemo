@@ -19,7 +19,7 @@ class ReplayBuffer:
         state_str = state_str.replace('\n', '')
         next_state_str = np.array_str(np.array(next_state))
         next_state_str = state_str.replace('\n', '')
-        logger.debug(f"{state_str} {action} {reward} {next_state_str}")
+        logger.debug(f"添加到缓冲区{state_str} {action} {reward} {next_state_str}")
 
     def sample(self, batch_size):  # get data from buffer, the size of the data is batch_size
         transitions = random.sample(self.buffer, batch_size)
@@ -138,16 +138,19 @@ class MultiPathTask:
     
     def pause(self):
         self.task_stop_event.set()
+        self.env.pause()# pause env
         while self.isRunning:
-            pass
+            pass# stop task
         
     def close(self):
         """
         程序结束时，请调用pause，然后join线程
         """
-        self.pause()
-        self.env.close()
-    
+        self.task_stop_event.set()
+        self.env.close()# stop env
+        while self.isRunning:
+            pass# stop task
+        
     def run(self):
         """
         开启多路径调度。
@@ -158,8 +161,8 @@ class MultiPathTask:
         replay_buffer = ReplayBuffer(buffer_size)
         
         # start operation. In each episode, the learning need to continue until done=1(ood rate is lower than demand)
-        state = self.env.reset() # initial state. random choose a stored state
-        
+        state = self.env.reset(False) # initial state. random choose a stored state
+        logger.info("开启多路径调度")
         i_episode=1
         # for i_episode in range(num_episodes):
         try:
@@ -168,15 +171,18 @@ class MultiPathTask:
                 state = self._run_episode(state,replay_buffer,i_episode * minimal_size)
                 i_episode+=1
             self.env.pause()
-        except KeyboardInterrupt:
-            logger.info("键盘中断多路径调度")
+        except KeyboardInterrupt as e:
+            logger.info("键盘中断，正在关闭多路径功能")
+            self.env.close()
+            logger.info("多路径功能已经关闭")
+            raise e
         self.isRunning=False
         
     def _run_episode(self,state:AllState,replay_buffer:ReplayBuffer,maxsize:int):
         while not self.task_stop_event.is_set(): # start learning
             action = self.agent.take_action(state, bw, bw1, bw2, bw3) # get the action index from NN module
             next_state, reward = self.env.step(action) # calculate parameter to action
-            logger.info(f"{next_state},reward")
+            logger.info(f"当前状态: {next_state},reward")
             replay_buffer.add(state, action, reward, next_state) # store information into buffer
             state = next_state # update state
             # once the size of buffer exceed minimal_size, start learning

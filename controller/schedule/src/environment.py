@@ -101,7 +101,7 @@ class Environment:
         self.switchs.set_multipath_state(mp_state.num,mp_state.order)
         self.multipath_state = mp_state
 
-    def step(self,action_index:int):
+    def step(self,action_index:int) -> Tuple[AllState,float]:
         if not getattr(self,'_reseted',False):
             raise Exception("必须先执行reset")
         
@@ -126,16 +126,19 @@ class Environment:
         """
         停止iperf和switch。停止后这个实例不能再使用。
         """
-        self.pause()
-        self.switchs.close()
+        self.switchs.close()#close multipath
+        def raise_on_call(*args,**kwargs):
+            raise Exception("已经关闭")
+        # self.iperf_handle.close()
+        self.reset=raise_on_call
     
     def pause(self):
         """
         只停止iperf。
         稍后可以用reset恢复。
         """
-        self.switchs.disable_multipath()
-        self.iperf_handle.close()
+        self.switchs.disable_multipath()#pause multipath
+        # self.iperf_handle.close()       #stop iperf
         self._reseted=False
 
 

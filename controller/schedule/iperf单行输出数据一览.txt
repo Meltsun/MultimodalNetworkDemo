@@ -1,29 +1,32 @@
-0	【[】 
-1	【5]】
-2	【0.0000-1.0000】           Interval                               
-3	【sec】                     
-4	【1009】                    Transfer
-5	【KBytes】
-6	【8.27】                    Bandwidth
-7	【Mbits/sec】
-8	【10.388】                  Jitter
-9	【ms】
-10	【5/】                      Lost/Total
-11	【708】
-12	【(0.71%)】
-13	【26.834/11.037/42.230/】   Latency avg/min/max/stdev
-14	【7.464】
-15	【ms】
-16	【703】                     PPS 
-17	【pps】
-18	【38.51】                    NetPwr
+splited = re.split(r'[/\s]+',line)[:-1]
 
+【0】   [
+【1】   3]
+【2】   1.00-2.00
+【3】   sec
+【4】   902
+【5】   KBytes
+【6】   7.39
+【7】   Mbits
+【8】   sec
+【9】   0.571
+【10】  ms
+【11】  98
+【12】  726
+【13】  (13%)
+【14】  788.315
+【15】  759.867
+【16】  807.393
+【17】  10.155
+【18】  ms
+【19】  629
+【20】  pps
 
-0  【[】
-1  【5]】
-2  【0.0000-1.0000】           Interval
-3  【sec】
-4  【435】                     out-of-order
-5  【datagrams】
-6  【received】
-7  【out-of-order】
+【0】   [
+【1】   5]
+【2】   0.0000-1.0000
+【3】   sec
+【4】   435
+【5】   datagrams
+【6】   received
+【7】   out-of-order

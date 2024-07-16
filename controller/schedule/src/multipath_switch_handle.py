@@ -35,6 +35,9 @@ class MultiPathSwitchHandle(SimpleSwitchHandle):
             for i,v in zip(register_indexes,order):
                 self.set_register('multipath_order',index=i,value=v)
     
+    def close(self) -> None:
+        super().close()
+        self.disable_multipath()
 
 class MultiPathSwitchComposite:
     def __init__(self) -> None:

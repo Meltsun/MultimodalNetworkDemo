@@ -41,21 +41,27 @@ with CONFIG_PATH.open(encoding="utf8") as file:
 LOG_FILE_PATH = root/"logs"/datetime.now().strftime("%Y%m%d_%H-%M-%S.log")
 LOG_FILE_PATH.parent.mkdir(exist_ok=True)
 
-logging.basicConfig(level=logging.INFO)
-
 logger=logging.getLogger('schedule')
 logger.setLevel(logging.DEBUG)
 
+formatter=logging.Formatter(
+    fmt='%(asctime)s - %(name)s - %(levelname)s > %(message)s',
+    datefmt= '%Y-%m-%d %H:%M:%S'
+)
+        
 console_handler = logging.StreamHandler()
 console_handler.setLevel(logging.INFO)
+console_handler.setFormatter(formatter)
 
 file_handler = logging.FileHandler(LOG_FILE_PATH,encoding='utf8',mode="w")
 file_handler.setLevel(logging.DEBUG)
-file_handler.setFormatter(
-    logging.Formatter(
-        fmt='%(asctime)s - %(name)s - %(levelname)s > %(message)s',
-        datefmt= '%Y-%m-%d %H:%M:%S'
-    )
-)
+file_handler.setFormatter(formatter)
+    
 logger.addHandler(file_handler)
 logger.addHandler(console_handler)
+
+# logger.debug('This is a debug message')
+# logger.info('This is an info message')
+# logger.warning('This is a warning message')
+# logger.error('This is an error message')
+# logger.critical('This is a critical message')

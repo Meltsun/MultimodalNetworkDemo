@@ -12,5 +12,8 @@ class TestUtils(unittest.TestCase):
     def test_register(self):
         self.switch.set_multipath_state((5,5,5),(2,1,3))
         
+    def test_close(self):
+        self.switch.close()
+        
 if __name__ == '__main__':
     unittest.main()
