@@ -28,12 +28,15 @@ class SwitchConfig(BaseModel):
 class IperfConfig(BaseModel):
     interval:int
     port:int
+class DDQNConfig(BaseModel):
+    interval:float
 
 CONFIG_PATH = root/"config.toml"
 with CONFIG_PATH.open(encoding="utf8") as file:
     all_multipath_config = toml.load(file)['multipath']
     switch_config = [SwitchConfig(**i) for i in all_multipath_config['switch']]
     iperf_config = IperfConfig(**all_multipath_config['iperf'])
+    ddqn_config = DDQNConfig(**all_multipath_config['ddqn'])
 
 LOG_FILE_PATH = root/"logs"/datetime.now().strftime("%Y%m%d_%H-%M-%S.log")
 LOG_FILE_PATH.parent.mkdir(exist_ok=True)

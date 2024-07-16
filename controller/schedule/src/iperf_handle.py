@@ -9,6 +9,7 @@ import time
 import sys
 import logging
 from pathlib import Path
+import traceback
 
 Mbps:TypeAlias = float
 NumOfPackets:TypeAlias = int
@@ -25,7 +26,7 @@ file_handler.setFormatter(
         datefmt= '%Y-%m-%d %H:%M:%S'
     )
 )
-
+iperf_logger.addHandler(file_handler)
 
 @dataclass
 class NetworkState:
@@ -78,14 +79,18 @@ class IperfHandle:
         def unknown_unit(name:str,unit:str)->Never:
             raise Exception(f"{name} 的未知单位：{unit}")
         try:
-            if splited[7]=="out-of-order":#乱序行
+            if len(splited)>=7 and splited[7]=="out-of-order":#乱序行
                 state.out_of_order = NumOfPackets(splited[4])
-            elif len(splited)==18:#常规行
-                #bandwidth
+            elif len(splited)>=16 and len(splited)<=18:#常规行
+                start,end = splited[2].split('-')
+                if float(end) - float(start) > 60:
+                    return None
                 if splited[7] == "Mbits/sec":
                     state.bandwidth = Mbps(splited[6])
                 elif splited[7] == "Kbits/sec":
                     state.bandwidth = Mbps(float(splited[6])/1000)
+                elif splited[7] == "bits/sec":
+                    return None
                 else:
                     unknown_unit("bandwith",splited[7])
                 #lost
@@ -97,7 +102,7 @@ class IperfHandle:
                 return None
             return state
         except Exception as e:
-            self.logger.critical(f"iperf解析错误: {e}\n错误详情:{e}")
+            self.logger.critical(f"iperf解析错误: {line}\n错误详情:{e}\n{traceback.format_exc()}")
     
     def get_network_states_block(self) -> List[NetworkState]:
         states=self.get_network_states()

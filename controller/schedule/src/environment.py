@@ -5,7 +5,7 @@ from typing_extensions import Iterable,Callable,TypeVar,Union,Sequence,NamedTupl
 from itertools import permutations,product
 
 from schedule.src.iperf_handle import NetworkState,IperfHandle
-from schedule.src.utils import logger
+from schedule.src.utils import logger,ddqn_config
 from schedule.src.multipath_switch_handle import MultiPathSwitchComposite
 
 @dataclass
@@ -109,7 +109,7 @@ class Environment:
             )
         )
 
-        new_network_states=self.iperf_handle.monitor_for_seconds(1.1)
+        new_network_states=self.iperf_handle.monitor_for_seconds(ddqn_config.interval)
         if len(new_network_states) > 0:
             self.network_states=new_network_states
 
