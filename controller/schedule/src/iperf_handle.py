@@ -62,25 +62,27 @@ class IperfHandle:
         state = NetworkState()
         def unknown_unit(name:str,unit:str)->Never:
             raise Exception(f"{name} 的未知单位：{unit}")
-
-        if splited[7]=="out-of-order":#乱序行
-            state.out_of_order = NumOfPackets(splited[4])
-        elif len(splited)==18:#常规行
-            #bandwidth
-            if splited[7] == "Mbits/sec":
-                state.bandwidth = Mbps(splited[6])
-            elif splited[7] == "Kbits/sec":
-                state.bandwidth = Mbps(float(splited[6])/1000)
-            else:
-                unknown_unit("bandwith",splited[7])
-            #lost
-            state.lost=NumOfPackets(splited[10][:-1])
-            #total
-            state.total=NumOfPackets(splited[11])
-        else :
-            self.logger.info(f"未知输出，未进行解析：{line}")
-            return None
-        return state
+        try:
+            if splited[7]=="out-of-order":#乱序行
+                state.out_of_order = NumOfPackets(splited[4])
+            elif len(splited)==18:#常规行
+                #bandwidth
+                if splited[7] == "Mbits/sec":
+                    state.bandwidth = Mbps(splited[6])
+                elif splited[7] == "Kbits/sec":
+                    state.bandwidth = Mbps(float(splited[6])/1000)
+                else:
+                    unknown_unit("bandwith",splited[7])
+                #lost
+                state.lost=NumOfPackets(splited[10][:-1])
+                #total
+                state.total=NumOfPackets(splited[11])
+            else :
+                self.logger.info(f"未知输出，未进行解析：{line}")
+                return None
+            return state
+        except Exception as e:
+            self.logger.critical(f"iperf解析错误: {e}\n错误详情:{e}")
     
     def get_network_states_block(self) -> List[NetworkState]:
         states=self.get_network_states()
