@@ -145,6 +145,7 @@ fileFrans：把需要用到的shell文件传递给所有交换机
 ```bash
 #服务端服务器（179）
 cd ./controller
+#确认使用了正确的环境，例如启用虚拟环境
 python -m schedule
 ```
 等待初始化完成后会有提示，要求启动或重启客户端.

@@ -158,7 +158,7 @@ class MultiPathTask:
         replay_buffer = ReplayBuffer(buffer_size)
         
         # start operation. In each episode, the learning need to continue until done=1(ood rate is lower than demand)
-        state = self.env.reset(False) # initial state. random choose a stored state
+        state = self.env.reset() # initial state. random choose a stored state
         
         i_episode=1
         # for i_episode in range(num_episodes):
