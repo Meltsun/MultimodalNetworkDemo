@@ -556,7 +556,7 @@ control c_ingress(inout headers hdr,
             bit<32> temp_multipath = 0;
             transmition_model.read(temp_eccn, (bit<32>)0);
             transmition_model.read(temp_multipath, (bit<32>)1);
-            if (temp_multipath == 1 && (hdr.tcp.isValid() || hdr.icmp.isValid())) {
+            if ( temp_multipath == 1 && (hdr.tcp.isValid() || hdr.udp.isValid() || hdr.icmp.isValid()) ) {
                 // the tcp packet should be forwarded multipath
                 bit<32> temp_multipath_ability = 0;
                 multipath_ability.read(temp_multipath_ability, (bit<32>)0);

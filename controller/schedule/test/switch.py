@@ -10,7 +10,7 @@ class TestUtils(unittest.TestCase):
         self.switch.enable_multipath()
     
     def test_register(self):
-        self.switch.set_multipath_state((10,1,10),(1,3,2))
+        self.switch.set_multipath_state((5,5,5),(2,1,3))
         
 if __name__ == '__main__':
     unittest.main()

@@ -63,7 +63,11 @@ def get_avg_bandwidth(networkStates:Sequence[NetworkState]) -> float:
     return sum_skip_none(networkStates,lambda i:i.bandwidth)/len(networkStates)
 
 def get_percentage_out_of_order(networkStates:Sequence[NetworkState])->float:
-    return sum_skip_none(networkStates,lambda i:i.lost)/sum_skip_none(networkStates,lambda i:i.total)
+    sumed_oof = sum_skip_none(networkStates,lambda i:i.out_of_order)
+    if sumed_oof ==0:
+        return 0
+    else:
+        return sumed_oof/sum_skip_none(networkStates,lambda i:i.total)
     
 
 class Environment:
