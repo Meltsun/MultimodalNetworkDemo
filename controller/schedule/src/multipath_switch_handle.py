@@ -38,6 +38,7 @@ class MultiPathSwitchHandle(SimpleSwitchHandle):
     def close(self) -> None:
         super().close()
         self.disable_multipath()
+        self.logger.warn("bmv2 handle已关闭")
 
 class MultiPathSwitchComposite:
     def __init__(self) -> None:

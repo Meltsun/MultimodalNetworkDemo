@@ -64,6 +64,8 @@ class IperfHandle:
     
     def close(self) -> None:
         self.process.terminate()
+        self.process.wait()
+        self.logger.warn("iperf handle已关闭")
 
     def __enter__(self):
         return self

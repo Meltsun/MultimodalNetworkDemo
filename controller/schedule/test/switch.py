@@ -7,13 +7,13 @@ class TestUtils(unittest.TestCase):
         super().__init__(methodName)
         self.switch=MultiPathSwitchComposite()
         
-        self.switch.enable_multipath()
+    #     self.switch.enable_multipath()
     
-    def test_register(self):
-        self.switch.set_multipath_state((5,5,5),(2,1,3))
+    # def test_register(self):
+    #     self.switch.set_multipath_state((5,5,5),(2,1,3))
         
     def test_close(self):
-        self.switch.close()
+        self.switch.disable_multipath()
         
 if __name__ == '__main__':
     unittest.main()

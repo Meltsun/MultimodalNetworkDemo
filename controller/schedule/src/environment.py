@@ -129,8 +129,9 @@ class Environment:
         self.switchs.close()#close multipath
         def raise_on_call(*args,**kwargs):
             raise Exception("已经关闭")
-        # self.iperf_handle.close()
+        self.iperf_handle.close()
         self.reset=raise_on_call
+        logger.warn("环境已关闭")
     
     def pause(self):
         """

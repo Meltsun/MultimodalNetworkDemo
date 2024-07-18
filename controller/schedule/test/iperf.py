@@ -14,12 +14,13 @@ class TestIperf(unittest.TestCase):
                 res = self.handle.phase_line(line)
                 if res is None:
                     raise Exception(f"第{i}行未解析")
+                print(res)
             except Exception as e:
                 print(f"第{i}行解析出错 {line} ")
                 raise e
     
-    # def test_config(self):
-    #     print(self.handle.get_network_states_block())
+    def test_config(self):
+        print(self.handle.get_network_states_block())
                 
 if __name__ == '__main__':
     unittest.main()

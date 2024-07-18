@@ -43,8 +43,11 @@ class SimpleSwitchHandle(P4Switch):
         关闭cli，断开ssh连接。
         """
         if getattr(self,'connection',None) is not None:
-            next(self._lifespan)
-    
+            try:
+                next(self._lifespan)
+            except StopIteration:
+                pass
+
     def _make_lifespan(self,ip:IPv4Address,port:int,user:str,password:str) -> typing.Generator[fabric.Connection, None, None]:
         with fabric.Connection(
             host = str(ip),
@@ -53,7 +56,7 @@ class SimpleSwitchHandle(P4Switch):
             connect_kwargs=dict(password=password)
         ) as connection:
             yield connection
-        self.logger.info("p4 runtime cli 已经关闭。")
+        self.logger.warn("p4 runtime cli 已经关闭。")
 
     @contextmanager
     def make_deferred_executor(self):

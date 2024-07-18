@@ -109,7 +109,7 @@ action_dim = 42
 # other parameters of DQN module
 lr = 2e-3 # learning rate
 gamma = 0.98 # attenuation factor
-epsilon = 0.01 # greedy coefficient, 10%->random choose, 90%->choose the max_targetQ
+epsilon = 0.1 # greedy coefficient, 10%->random choose, 90%->choose the max_targetQ
 target_update = 10 # update freqency of target Q. After 10 times of Q table update, copy Q table to target Q
 # q_target = reward + gamma * max_targetQ
 # q' = q + lr * (q_target - q)
@@ -119,9 +119,9 @@ target_update = 10 # update freqency of target Q. After 10 times of Q table upda
 minimal_size = 10 # the learning interval. Once store 10 data, begin a learning(update q)
 batch_size = 9 # the amount of sample in buffer
 bw = 8.0
-bw1 = 2.7
-bw2 = 4.5
-bw3 = 6.3
+bw1 = 3
+bw2 = 4
+bw3 = 3
 
 
 class MultiPathTask:
