@@ -1,1 +1,1 @@
-from schedule.src.ddqn import MultiPathTask
+from schedule.server.ddqn import MultiPathTask

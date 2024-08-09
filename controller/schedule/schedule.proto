@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package schedule;
+
+service ScheduleClient{
+    rpc monitor (MonitorRequest) returns (AverageNetworkState) {}
+}
+
+message MonitorRequest {
+    int32 duration = 1;
+}
+
+message AverageNetworkState{
+    float bandwidth = 1;
+    float out_of_order_rate = 4;
+}

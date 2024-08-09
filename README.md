@@ -140,25 +140,22 @@ fileFrans：把需要用到的shell文件传递给所有交换机
 2. 确认已经安装iperf
 3. 安装cuda、pytorch
 2. 安装其他python依赖项：fabric typing_extensions pydantic_extra_types netaddr numpy toml
-#### 启动，直接运行模块时
-直接运行模块时，运行一次调度任务，计算指定轮次后结束。
+#### 启动
+#### 1. 启动客户端（iperf服务器）
+在客户端机器上
+```bash
+cd ./controller
+python -m schedule.client
+```
+#### 2. 启动iperf客户端
+在服务端机器上启动iperf，测量乱序率和带宽并作为背景流量
+#### 3. 启动服务器(直接运行模块)
 ```bash
 #服务端服务器（179）
 cd ./controller
 #确认使用了正确的环境，例如启用虚拟环境
-python -m schedule
+python -m schedule.server
 ```
-等待初始化完成后会有提示，要求启动或重启客户端.
-**重复测试时，每次服务端重启后，必须重启客户端，否则iperf无法连接**
-
-```bash
-#客户端服务器（169）
-bash ./client/retry_iperf.sh <server_ip> <port>
-```
-#### 作为模块导入
-`from schedule import MultiPathTask`
-具体请查看docstring和__main__
-一个MultiPathTask实例包含2个P4Switch实例，所以同样不适合重复创建
 
 ### 10. 网络连接配置 by WJF
 ##### 终端：

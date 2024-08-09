@@ -14,19 +14,6 @@ import traceback
 Mbps:TypeAlias = float
 NumOfPackets:TypeAlias = int
 
-root = Path(__file__).parent.parent
-LOG_FILE_PATH = root/"logs"/"iperf.log"
-iperf_logger=logging.getLogger('iperf')
-iperf_logger.setLevel(logging.DEBUG)
-file_handler = logging.FileHandler(LOG_FILE_PATH.parent/'iperf.log',encoding='utf8',mode="w")
-file_handler.setLevel(logging.DEBUG)
-file_handler.setFormatter(
-    logging.Formatter(
-        fmt='%(asctime)s - %(name)s - %(levelname)s > %(message)s',
-        datefmt= '%Y-%m-%d %H:%M:%S'
-    )
-)
-iperf_logger.addHandler(file_handler)
 
 @dataclass
 class NetworkState:
@@ -45,12 +32,9 @@ class IperfHandle:
     """
     stdout:BufferedReader
     logger:logging.Logger
-    def __init__(self,cmd:List,logger=None) -> None:
+    iperf_logger:logging.Logger
+    def __init__(self,cmd:List,logger:logging.Logger,iperf_logger:logging.Logger) -> None:
         cmd = [str(i) for i in cmd]
-        if logger is None:
-            self.logger=logging.root
-        else:
-            self.logger=logger
         self.logger.debug("发送命令"+' '.join(cmd))
         self.process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         assert isinstance(self.process.stdout,BufferedReader)
@@ -76,7 +60,7 @@ class IperfHandle:
 
     def phase_line(self,line:str) -> Optional[NetworkState]:
         splited = re.split(r'[/\s]+',line)[:-1]
-        iperf_logger.info(line)
+        self.iperf_logger.info(line)
         state = NetworkState()
         def unknown_unit(name:str,unit:str)->Never:
             raise Exception(f"{name} 的未知单位：{unit}")
@@ -130,7 +114,7 @@ class IperfHandle:
                     pass
         return states
 
-    def monitor_for_seconds(self,duration) -> List[NetworkState]:
+    def monitor_for_seconds(self,duration:int) -> List[NetworkState]:
         """
         获取这段时间的网络状态
         """

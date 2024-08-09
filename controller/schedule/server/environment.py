@@ -3,10 +3,11 @@ import datetime
 from io import BufferedReader
 from typing_extensions import Iterable,Callable,TypeVar,Union,Sequence,NamedTuple,cast,Tuple,Dict,TypedDict
 from itertools import permutations,product
+import grpc
 
-from schedule.src.iperf_handle import NetworkState,IperfHandle
-from schedule.src.utils import logger,ddqn_config
-from schedule.src.multipath_switch_handle import MultiPathSwitchComposite
+from schedule.server.multipath_switch_handle import MultiPathSwitchComposite
+from schedule.server.utils import logger,ddqn_config,iperf_config
+from schedule import schedule_pb2_grpc,schedule_pb2
 
 @dataclass
 class MultipathState:
@@ -28,10 +29,10 @@ class AllState(NamedTuple):
     path3_order:int
 
     @staticmethod
-    def from_net_and_mp_state(net_states:Sequence[NetworkState],mp_state:MultipathState):
+    def from_net_and_mp_state(avg_network_status:schedule_pb2.AverageNetworkState , mp_state:MultipathState):
         return AllState(
-            get_avg_bandwidth(net_states),
-            get_percentage_out_of_order(net_states),
+            avg_network_status.out_of_order_rate,
+            avg_network_status.bandwidth,
             *mp_state.num,
             *mp_state.order,
         )
@@ -49,51 +50,35 @@ class Action(NamedTuple):
 
 actions=tuple( Action(*i,*j) for i,j in product(delta_actions,order_actions) )
 
-T=TypeVar('T')
-U=TypeVar('U',float,int)
-def sum_skip_none(container:Iterable[T],value_getter:Callable[[T],Union[None,U]]) -> U:
-    sumed = 0
-    for i in container:
-        value = value_getter(i)
-        if value is not None:
-            sumed+=value
-    return sumed
-
-def get_avg_bandwidth(networkStates:Sequence[NetworkState]) -> float:
-    return sum_skip_none(networkStates,lambda i:i.bandwidth)/len(networkStates)
-
-def get_percentage_out_of_order(networkStates:Sequence[NetworkState])->float:
-    sumed_oof = sum_skip_none(networkStates,lambda i:i.out_of_order)
-    if sumed_oof ==0:
-        return 0
-    else:
-        return sumed_oof/sum_skip_none(networkStates,lambda i:i.total)
-    
-
 class Environment:
     stdout:BufferedReader
-    iperf_handle:IperfHandle
+    grpc_channel:grpc.Channel
     max_total_bw:float
     multipath_state:MultipathState#不要直接写这个值，总是使用set_multipath_state，避免造成交换机行为和这个值不一致。
 
     def __init__(self, max_total_bw:float) -> None:
         self.max_total_bw=max_total_bw
         self.switchs = MultiPathSwitchComposite()
+        self.grpc_channel = grpc.insecure_channel(
+            f"{iperf_config.grpc_ip}:{iperf_config.grpc_port}"
+        )
+        self.grpc_stub=schedule_pb2_grpc.ScheduleClientStub(self.grpc_channel)
+    
+    def monitor_network(self,duration) -> schedule_pb2.AverageNetworkState:
+        return self.grpc_stub.monitor(duration)
     
     def reset(self,wait_iperf_clients=True) -> AllState:
-        self.iperf_handle = IperfHandle(['iperf','-s','-i','1','-p','5000','-u','-e'],logger=logger)
         self.switchs.enable_multipath()
-        if wait_iperf_clients:
-            input("请启动或重启iperf客户端，并按下回车以继续程序")
-        
         self.set_multipath_state(
                 MultipathState(
                 (5,5,5),
                 (1,2,3),
             )
         )
-        self.network_states=self.iperf_handle.get_network_states_block()
-        state = AllState.from_net_and_mp_state(self.network_states,self.multipath_state)
+        self.avg_network_states=self.monitor_network(1)
+        while self.avg_network_states.bandwidth==0:
+            self.avg_network_states=self.monitor_network(1)
+        state = AllState.from_net_and_mp_state(self.avg_network_states,self.multipath_state)
         self._reseted=True
         return state
     
@@ -113,14 +98,14 @@ class Environment:
             )
         )
 
-        new_network_states=self.iperf_handle.monitor_for_seconds(ddqn_config.interval)
-        if len(new_network_states) > 0:
-            self.network_states=new_network_states
+        new_avg_network_states=self.monitor_network(ddqn_config.interval)
+        if new_avg_network_states.bandwidth > 0:
+            self.avg_network_states=new_avg_network_states
 
-        reward = 0.3 * get_avg_bandwidth(self.network_states)/self.max_total_bw - 0.7 * get_percentage_out_of_order(self.network_states)
+        reward = 0.3 * new_avg_network_states.bandwidth/self.max_total_bw - 0.7 * new_avg_network_states.out_of_order_rate
         reward *=100
 
-        return AllState.from_net_and_mp_state(self.network_states,self.multipath_state),reward
+        return AllState.from_net_and_mp_state(self.avg_network_states,self.multipath_state),reward
     
     def close(self) -> None:
         """
@@ -129,8 +114,8 @@ class Environment:
         self.switchs.close()#close multipath
         def raise_on_call(*args,**kwargs):
             raise Exception("已经关闭")
-        self.iperf_handle.close()
         self.reset=raise_on_call
+        self.grpc_channel.close()
         logger.warn("环境已关闭")
     
     def pause(self):
@@ -139,7 +124,6 @@ class Environment:
         稍后可以用reset恢复。
         """
         self.switchs.disable_multipath()#pause multipath
-        # self.iperf_handle.close()       #stop iperf
         self._reseted=False
 
 

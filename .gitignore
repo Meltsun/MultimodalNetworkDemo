@@ -10,3 +10,6 @@ controller/database.db
 **/test.py
 controller/schedule/api.py
 *.deb
+controller/schedule/schedule_pb2_grpc.py
+controller/schedule/schedule_pb2.pyi
+controller/schedule/schedule_pb2.py

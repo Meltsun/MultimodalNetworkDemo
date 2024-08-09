@@ -1,6 +1,7 @@
 [multipath.iperf]
 interval=1#秒
-port=5000
+grpc_address="?"
+grpc_port=50051
 
 [multipath.ddqn]
 interval=4#秒

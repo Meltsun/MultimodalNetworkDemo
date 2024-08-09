@@ -27,7 +27,8 @@ class SwitchConfig(BaseModel):
     name:str
 class IperfConfig(BaseModel):
     interval:int
-    port:int
+    grpc_ip:IPv4Address
+    grpc_port:int
 class DDQNConfig(BaseModel):
     interval:float
 
@@ -38,10 +39,10 @@ with CONFIG_PATH.open(encoding="utf8") as file:
     iperf_config = IperfConfig(**all_multipath_config['iperf'])
     ddqn_config = DDQNConfig(**all_multipath_config['ddqn'])
 
-LOG_FILE_PATH = root/"logs"/datetime.now().strftime("%Y%m%d_%H-%M-%S.log")
+LOG_FILE_PATH = root/"logs"/datetime.now().strftime("%Y%m%d_%H-%M-%S_server.log")
 LOG_FILE_PATH.parent.mkdir(exist_ok=True)
 
-logger=logging.getLogger('schedule')
+logger=logging.getLogger('schedule_server')
 logger.setLevel(logging.DEBUG)
 
 formatter=logging.Formatter(
